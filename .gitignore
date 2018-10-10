@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+sbylib-math.so
+sbylib-math.dylib
+sbylib-math.dll
+sbylib-math.a
+sbylib-math.lib
+sbylib-math-test-*
+*.exe
+*.o
+*.obj
+*.lst
+lib
