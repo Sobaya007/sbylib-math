@@ -29,6 +29,8 @@ alias Matrix!(double, 2, 2) mat2d;
 alias Matrix!(double, 3, 3) mat3d;
 alias Matrix!(double, 4, 4) mat4d;
 
+enum isMatrix(T) = isInstanceOf!(Matrix, T);
+
 struct Matrix(T, uint U, uint V) if (__traits(isArithmetic, T) && 1 <= U && U <= 4 && 1 <= V && V <= 4){
 private:
     T[U*V] element;
@@ -881,4 +883,15 @@ unittest {
     assert(m * p == vec4(100,201,302,1));
     auto t = mat4.translate(vec3(100,200,300));
     assert(m == t);
+}
+
+unittest {
+    struct S {
+        auto get() { return mat2(0); }
+        alias get this;
+    }
+
+    S s;
+    vec2 a = s * vec2(0);
+
 }

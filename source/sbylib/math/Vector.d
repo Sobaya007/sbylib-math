@@ -16,86 +16,141 @@ alias Vector!(int,   2) vec2i;
 alias Vector!(int,   3) vec3i;
 alias Vector!(int,   4) vec4i;
 
+
+template PotentialExpression(T, alias pred) {
+    static if (pred!(T)) {
+        enum PotentialExpression = "";
+    } else static if (isAggregateType!(T)) {
+        enum AliasThis = __traits(getAliasThis, T);
+        static assert(AliasThis.length > 0);
+        enum Expr = "T."~AliasThis[0];
+        static if (isFunction!(mixin(Expr))) {
+            alias Type = ReturnType!(mixin(Expr));
+        } else {
+            alias Type = typeof(mixin(Expr));
+        }
+        enum PotentialExpression = "." ~ AliasThis[0] ~ PotentialExpression!(Type, pred);
+    }
+}
+
+template isPotentially(T, alias pred) {
+    static if (pred!(T)) {
+        enum isPotentially = true;
+    } else static if (isAggregateType!(T)) {
+        enum AliasThis = __traits(getAliasThis, T);
+        static if (AliasThis.length == 0) {
+            enum isPotentially = false;
+        } else {
+            enum Expr = "T."~AliasThis[0];
+            static if (isFunction!(mixin(Expr))) {
+                alias Type = ReturnType!(mixin(Expr));
+            } else {
+                alias Type = typeof(mixin(Expr));
+            }
+            enum isPotentially = isPotentially!(Type, pred);
+        }
+    } else {
+        enum isPotentially = false;
+    }
+}
+enum isVector(T) = isInstanceOf!(Vector, T);
+
+template VectorType(Args...)
+    if (allSatisfy!(templateNot!(isDynamicArray), Args))
+{
+    template CoreType(T) {
+        static if (isVector!(T)) alias CoreType = T.ElementType;
+        else static if (isArray!(T)) alias CoreType = ForeachType!T;
+        else alias CoreType = T;
+    }
+
+    template LargestType(Args...) {
+        static if (Args.length == 1) alias LargestType = CoreType!(Args[0]);
+        else alias LargestType = Largest!(CoreType!(Args[0]), LargestType!(Args[1..$]));
+    }
+
+    template Length(T) {
+        static if (isVector!(T)) enum Length = T.Dimension;
+        else static if (isArray!(T)) enum Length = T.length;
+        else enum Length = 1;
+    }
+
+    template Count(Args...) {
+        static if (Args.length == 0) enum Count = 0;
+        else enum Count = Length!(Args[0]) + Length!(Args[1..$]);
+    }
+
+    alias VectorType = Vector!(LargestType!(Args), Count!(Args));
+}
+
 //T型のS個のベクトル
-struct Vector(T, uint S) {
+struct Vector(T, uint S) 
+{
 public:
 
     enum Dimension = S;
     alias ElementType = T;
-    enum isVector = true;
 
     T[S] elements;
     alias elements this;
 
     this(T e) {
-        elements[] = e;
+        assignSingle(e);
     }
 
-    this(T[] elements...) {
-        this.elements[] = elements[0..S];
-    }
-
+    //数字、配列、Vectorいずれも使える
     this(Args...)(Args args) {
-        auto cnt = 0;
-        foreach (arg; args) {
-            static if (isArray!(typeof(arg))) {
-                this.elements[cnt..cnt+arg.length] = arg;
-                cnt += arg.length;
-            } else static if (isAssignable!(T, typeof(arg))) {
-                this.elements[cnt] = arg;
-                cnt++;
-                //isInstanceOfでやろうとしたが、この時点ではVectorの型情報が正しく作られていないため参照できない。
-            } else {
-                foreach (i; 0..arg.array.length) {
-                    this.elements[cnt] = cast(T)arg.array[i];
-                    cnt++;
-                }
-            }
+        assignAll(args);
+    }
+
+    private template Expression(AnotherType) {
+        static if (isPotentially!(AnotherType, isArray)) enum Expression = "value" ~ PotentialExpression!(AnotherType, isArray) ~ "[]";
+        else enum Expression = "value";
+    }
+
+    private Vector makeVector(string expr, AnotherType...)(auto ref AnotherType values) const {
+        static if (AnotherType.length > 0) alias value = values[0];
+        else alias value = values;
+
+        Vector result;
+        result.elements[] = mixin(expr);
+        return result;
+    }
+
+    Vector opBinary(string op, AnotherType)(auto ref AnotherType value) const 
+    { 
+        return makeVector!("elements[]" ~ op ~ Expression!(AnotherType))(value);
+    }
+
+    Vector opBinaryRight(string op, AnotherType)(auto ref AnotherType value) const 
+    {
+        import sbylib.math.Matrix;
+        static if (isPotentially!(AnotherType, isMatrix)) {
+            return mixin("value"~PotentialExpression!(AnotherType, isMatrix) ~ ".opBinary!(\""~op~"\")(this)");
+        } else {
+            return makeVector!(Expression!(AnotherType) ~ op ~ "elements[]")(value);
         }
     }
 
-    Vector opBinary(string op, U)(const Vector!(U,S) v) const //=============================Vectorに対する二項演算
-        in(S == v.elements.length)
-    {
-        Vector!(T, S) result;
-        mixin("result.elements[] = elements[]" ~ op ~ "v.elements[];");
-        return result;
+    Vector opUnary(string op)() const {
+        static if (op == "+")
+            return makeVector!("elements[]"); // a[] = +b[]; はダメらしい
+        else
+            return makeVector!(op ~ "elements[]");
     }
 
-    Vector opBinary(string op)(T t) const { //================================スカラーに対する二項演算
-        Vector!(T, S) result;
-        mixin("result.elements[] = elements[]" ~ op ~ "t;");
-        return result;
-    }
-
-    Vector opBinaryRight(string op)(T t) const {
-        Vector!(T, S) result;
-        mixin("result.elements[] = t" ~ op ~ "elements[];");
-        return result;
-    }
-
-    Vector opUnary(string op)() const { //====================================単項演算子
-        Vector!(T, S) result;
-        mixin(getUnaryCode(op, S));
-        return result;
-    }
-
-    Vector opAssign(T[] a)
-        in(a.length == this.elements.length)
-    {
-        this.elements[] = a;
+    Vector opAssign(AnotherType)(AnotherType a) {
+        static if (isVector!(AnotherType) || isArray!(AnotherType)) {
+            this.assignAll(a);
+        } else {
+            this.assignSingle(a);
+        }
         return this;
     }
 
-    Vector opOpAssign(string op)(Vector v) //=============================ベクトルに対する代入算術演算子
-        in(v.elements.length == S)
+    Vector opOpAssign(string op, AnotherType)(AnotherType value)
     {
-        mixin("elements[] " ~ op ~"= v.elements[];");
-        return this;
-    }
-
-    Vector opOpAssign(string op)(T e) { //================================スカラーに対する代入算術演算子
-        mixin("elements[] " ~ op ~"= e;");
+        mixin("elements[] " ~ op ~ "=" ~ Expression!(AnotherType) ~ ";");
         return this;
     }
 
@@ -107,17 +162,8 @@ public:
         return this.elements[idx] = value;
     }
 
-    T opIndexOpAssign(string op)(T value, size_t idx) {
+    T opIndexOpAssign(string op, AnotherType)(AnotherType value, size_t idx) {
         mixin("return this.elements[idx] " ~ op ~ "= value;");
-    }
-
-    auto opCast(V)() const {
-        import std.conv;
-        static if (is(typeof(V.isVector))) {
-            return V(this.elements.to!(V.ElementType[]));
-        } else {
-            return this.elements.to!(V);
-        }
     }
 
     auto array() inout { //===================================================配列化
@@ -191,9 +237,33 @@ public:
             return r;
         }
     }
+
+    private void assignAll(Args...)(Args args) {
+        T[] head = elements;
+        static foreach (arg; args) {
+            assign(head, arg);
+        }
+    }
+
+    private void assign(AnotherType)(ref T[] head, AnotherType value) {
+        static if (isVector!(AnotherType)) {
+            assign(head, value.elements);
+        } else static if (isArray!(AnotherType)) {
+            foreach (ref v; value) assign(head, v);
+        } else {
+            assert(head.length > 0);
+            head[0] = value;
+            head = head[1..$];
+        }
+    }
+
+    private void assignSingle(AnotherType)(AnotherType value) {
+        this.elements[] = value;
+    }
 }
 
 //======================================================================以下ベクトル計算系の関数達
+
 
 template Assignable(T,S){
 
@@ -448,4 +518,19 @@ unittest {
     vec2 d = vec2(2,1);
     d.xy = d.yx;
     assert(d.xy == vec2(1,2));
+}
+
+unittest {
+    struct S {
+        auto get() { return vec3(0); }
+
+        alias get this;
+    }
+
+    static assert(isPotentially!(vec3, isArray));
+    static assert(isPotentially!(S, isArray));
+
+    S s;
+    vec3 b = s;
+    b += s;
 }
