@@ -17,76 +17,11 @@ alias Vector!(int,   3) vec3i;
 alias Vector!(int,   4) vec4i;
 
 
-template PotentialExpression(T, alias pred) {
-    static if (pred!(T)) {
-        enum PotentialExpression = "";
-    } else static if (isAggregateType!(T)) {
-        enum AliasThis = __traits(getAliasThis, T);
-        static assert(AliasThis.length > 0);
-        enum Expr = "T."~AliasThis[0];
-        static if (isFunction!(mixin(Expr))) {
-            alias Type = ReturnType!(mixin(Expr));
-        } else {
-            alias Type = typeof(mixin(Expr));
-        }
-        enum PotentialExpression = "." ~ AliasThis[0] ~ PotentialExpression!(Type, pred);
-    }
-}
-
-template isPotentially(T, alias pred) {
-    static if (pred!(T)) {
-        enum isPotentially = true;
-    } else static if (isAggregateType!(T)) {
-        enum AliasThis = __traits(getAliasThis, T);
-        static if (AliasThis.length == 0) {
-            enum isPotentially = false;
-        } else {
-            enum Expr = "T."~AliasThis[0];
-            static if (isFunction!(mixin(Expr))) {
-                alias Type = ReturnType!(mixin(Expr));
-            } else {
-                alias Type = typeof(mixin(Expr));
-            }
-            enum isPotentially = isPotentially!(Type, pred);
-        }
-    } else {
-        enum isPotentially = false;
-    }
-}
 enum isVector(T) = isInstanceOf!(Vector, T);
-
-template VectorType(Args...)
-    if (allSatisfy!(templateNot!(isDynamicArray), Args))
-{
-    template CoreType(T) {
-        static if (isVector!(T)) alias CoreType = T.ElementType;
-        else static if (isArray!(T)) alias CoreType = ForeachType!T;
-        else alias CoreType = T;
-    }
-
-    template LargestType(Args...) {
-        static if (Args.length == 1) alias LargestType = CoreType!(Args[0]);
-        else alias LargestType = Largest!(CoreType!(Args[0]), LargestType!(Args[1..$]));
-    }
-
-    template Length(T) {
-        static if (isVector!(T)) enum Length = T.Dimension;
-        else static if (isArray!(T)) enum Length = T.length;
-        else enum Length = 1;
-    }
-
-    template Count(Args...) {
-        static if (Args.length == 0) enum Count = 0;
-        else enum Count = Length!(Args[0]) + Length!(Args[1..$]);
-    }
-
-    alias VectorType = Vector!(LargestType!(Args), Count!(Args));
-}
 
 //T型のS個のベクトル
 struct Vector(T, uint S) 
 {
-public:
 
     enum Dimension = S;
     alias ElementType = T;
@@ -101,20 +36,6 @@ public:
     //数字、配列、Vectorいずれも使える
     this(Args...)(Args args) {
         assignAll(args);
-    }
-
-    private template Expression(AnotherType) {
-        static if (isPotentially!(AnotherType, isArray)) enum Expression = "value" ~ PotentialExpression!(AnotherType, isArray) ~ "[]";
-        else enum Expression = "value";
-    }
-
-    private Vector makeVector(string expr, AnotherType...)(auto ref AnotherType values) const {
-        static if (AnotherType.length > 0) alias value = values[0];
-        else alias value = values;
-
-        Vector result;
-        result.elements[] = mixin(expr);
-        return result;
     }
 
     Vector opBinary(string op, AnotherType)(auto ref AnotherType value) const 
@@ -154,11 +75,11 @@ public:
         return this;
     }
 
-    T opIndex(size_t idx) const { //=========================================添字演算子
+    T opIndex(size_t idx) const {
         return this.elements[idx];
     }
 
-    T opIndexAssign(T value, size_t idx) {
+    T opIndexAssign(ElementType value, size_t idx) {
         return this.elements[idx] = value;
     }
 
@@ -166,83 +87,72 @@ public:
         mixin("return this.elements[idx] " ~ op ~ "= value;");
     }
 
-    auto array() inout { //===================================================配列化
+    auto array() inout {
         return elements;
     }
 
-    ref auto opDispatch(string s)() inout
-    if (s.all!(a => countUntil("xyzw", a) != -1)
-                 || s.all!(a => countUntil("rgba", a) != -1)){
-        enum isXYZW = s.all!(a => countUntil("xyzw", a) != -1);
-        enum isRGBA = s.all!(a => countUntil("rgba", a) != -1);
+    enum XYZW = "xyzw";
+    enum RGBA = "rgba";
+
+    mixin template Gen(string s) {
+        enum isXYZW = s.all!(a => XYZW.canFind(a));
+        enum isRGBA = s.all!(a => RGBA.canFind(a));
         static assert(isXYZW || isRGBA);
-        enum propertyString = isXYZW ? "xyzw" : isRGBA ? "rgba" : "";
+        enum propertyString = isXYZW ? XYZW : isRGBA ? RGBA : "";
+        enum index = s.map!(a => countUntil(propertyString, a)).array;
+    }
+
+    auto ref opDispatch(string s)() inout
+        if (s.all!(a =>XYZW.canFind(a)) || s.all!(a => RGBA.canFind(a)))
+    {
+        mixin Gen!(s);
         static if(s.length == 1) {
-            enum xyzwPos = countUntil(propertyString, s);
-            return elements[xyzwPos];
+            return elements[index[0]];
         } else {
-            enum index = s.map!(a => countUntil(propertyString, a)).array;
             Vector!(T, s.length) result;
-            foreach (i,idx; index) {
+            static foreach (i,idx; index) {
                 result[i] = elements[idx];
             }
             return result;
         }
     }
 
-    ref auto opDispatch(string s)(T val)
-    if (s.all!(a => countUntil("xyzw", a) != -1)
-                 || s.all!(a => countUntil("rgba", a) != -1)){
-        enum isXYZW = s.all!(a => countUntil("xyzw", a) != -1);
-        enum isRGBA = s.all!(a => countUntil("rgba", a) != -1);
-        static assert(isXYZW || isRGBA);
-        enum propertyString = isXYZW ? "xyzw" : isRGBA ? "rgba" : "";
+    ElementType opDispatch(string s)(ElementType val)
+        if (s.all!(a =>XYZW.canFind(a)) || s.all!(a => RGBA.canFind(a)))
+    {
+        mixin Gen!(s);
         static if(s.length == 1) {
-            enum xyzwPos = countUntil(propertyString, s);
-            return this[xyzwPos] = val;
+            return this[index[0]] = val;
         } else {
-            enum index = s.map!(a => countUntil(propertyString, a)).array;
-            foreach (i,idx; index) {
+            static foreach (i,idx; index) {
                 this[idx] = val;
             }
             return val;
         }
     }
 
-    ref auto opDispatch(string s)(Vector!(T,s.length) val)
-    if (s.all!(a => countUntil("xyzw", a) != -1)
-                 || s.all!(a => countUntil("rgba", a) != -1)){
-        enum isXYZW = s.all!(a => countUntil("xyzw", a) != -1);
-        enum isRGBA = s.all!(a => countUntil("rgba", a) != -1);
-        static assert(isXYZW || isRGBA);
-        enum propertyString = isXYZW ? "xyzw" : isRGBA ? "rgba" : "";
-        enum index = s.map!(a => countUntil(propertyString, a)).array;
-        foreach (i,idx; index) {
+    Vector!(ElementType,s.length) opDispatch(string s)(Vector!(ElementType,s.length) val)
+        if (s.all!(a =>XYZW.canFind(a)) || s.all!(a => RGBA.canFind(a)))
+    {
+        mixin Gen!(s);
+        static foreach (i,idx; index) {
             this[idx] = val[i];
         }
         return val;
     }
 
-    string toString() const { //=============================================文字列化
-        string code = "(";
-        foreach (i; 0..S) {
-            code ~= to!string(this[i]);
-            if (i != S-1) code ~= ",";
-        }
-        code ~= ")";
-        return code;
+    string toString() const {
+        import std.format;
+        return format!"(%s)"(this.elements.array.map!(to!string).join(","));
     }
 
     static if (isFloatingPoint!T) {
         bool hasNaN() const {
-            foreach (e; this.elements) {
-                if (isNaN(e)) return true;
-            }
-            return false;
+            return this.elements.array.any!(isNaN);
         }
     }
     static if (isBasicType!(T)) {
-        static Vector fromString(string str) { //===========================文字列からVectorを生成
+        static Vector fromString(string str) {
             Vector r;
             auto strs = str.split[2].split(",");
             foreach (int c, s; strs) {
@@ -274,31 +184,27 @@ public:
     private void assignSingle(AnotherType)(AnotherType value) {
         this.elements[] = value;
     }
+
+    private template Expression(AnotherType) {
+        static if (isPotentially!(AnotherType, isArray)) enum Expression = "value" ~ PotentialExpression!(AnotherType, isArray) ~ "[]";
+        else enum Expression = "value";
+    }
+
+    private Vector makeVector(string expr, AnotherType...)(auto ref AnotherType values) const {
+        static if (AnotherType.length > 0) alias value = values[0];
+        else alias value = values;
+
+        Vector result;
+        result.elements[] = mixin(expr);
+        return result;
+    }
 }
 
 //======================================================================以下ベクトル計算系の関数達
 
-
-template Assignable(T,S){
-
-    static if (isAssignable!(T, S)) {
-        alias Result = T;
-        alias Other = S;
-    } else static if (isAssignable!(S, T)) {
-        alias Result = S;
-        alias Other = T;
-    }
-}
-
 template dot(T, S, uint U) {
 
-    static if (isAssignable!(T, S)) {
-        alias Result = T;
-        alias Other = S;
-    } else static if (isAssignable!(S, T)) {
-        alias Result = S;
-        alias Other = T;
-    }
+    alias Result = Largest!(T,S);
 
     Result dot(Vector!(T, U) v, Vector!(S, U) v2) {
         Result result;
@@ -316,7 +222,7 @@ template dot(T, S, uint U) {
 
 template minVector(T, S, uint U) {
 
-    mixin Assignable!(T,S);
+    alias Result = Largest!(T,S);
     Vector!(Result, U) minVector(Vector!(T,U) v, Vector!(S,U) v2) {
         mixin({
             string str = "return Vector!(Result,U)(";
@@ -331,7 +237,7 @@ template minVector(T, S, uint U) {
 
 template maxVector(T, S, uint U) {
 
-    mixin Assignable!(T,S);
+    alias Result = Largest!(T,S);
     Vector!(Result, U) maxVector(Vector!(T,U) v, Vector!(S,U) v2) {
         mixin({
             string str = "return Vector!(Result,U)(";
@@ -346,13 +252,7 @@ template maxVector(T, S, uint U) {
 
 template cross(T, S, uint U) if (U == 2) {
 
-    static if (isAssignable!(T, S)) {
-        alias Result = T;
-        alias Other = S;
-    } else static if (isAssignable!(S, T)) {
-        alias Result = S;
-        alias Other = T;
-    }
+    alias Result = Largest!(T,S);
 
     Result cross(Vector!(T, U) v, Vector!(S, U) v2){
         return v.x * v2.y - v.y * v2.x;
@@ -361,13 +261,7 @@ template cross(T, S, uint U) if (U == 2) {
 
 template cross(T, S, uint U) if (U == 3) {
 
-    static if (isAssignable!(T, S)) {
-        alias Result = T;
-        alias Other = S;
-    } else static if (isAssignable!(S, T)) {
-        alias Result = S;
-        alias Other = T;
-    }
+    alias Result = Largest!(T,S);
 
     Vector!(Result, U) cross(Vector!(T, U) v, Vector!(S, U) v2) {
         Vector!(Result, U) result;
@@ -496,5 +390,42 @@ Vector!(T,3)[] mostDispersionBasis(T)(Vector!(T,3)[] vertices...)
     auto diagonal = mat3.diagonalizeForRealSym(vcm);
     auto base = 3.iota.map!(a => diagonal.column[a].normalize).array;
     return base;
+}
+
+private template PotentialExpression(T, alias pred) {
+    static if (pred!(T)) {
+        enum PotentialExpression = "";
+    } else static if (isAggregateType!(T)) {
+        enum AliasThis = __traits(getAliasThis, T);
+        static assert(AliasThis.length > 0);
+        enum Expr = "T."~AliasThis[0];
+        static if (isFunction!(mixin(Expr))) {
+            alias Type = ReturnType!(mixin(Expr));
+        } else {
+            alias Type = typeof(mixin(Expr));
+        }
+        enum PotentialExpression = "." ~ AliasThis[0] ~ PotentialExpression!(Type, pred);
+    }
+}
+
+private template isPotentially(T, alias pred) {
+    static if (pred!(T)) {
+        enum isPotentially = true;
+    } else static if (isAggregateType!(T)) {
+        enum AliasThis = __traits(getAliasThis, T);
+        static if (AliasThis.length == 0) {
+            enum isPotentially = false;
+        } else {
+            enum Expr = "T."~AliasThis[0];
+            static if (isFunction!(mixin(Expr))) {
+                alias Type = ReturnType!(mixin(Expr));
+            } else {
+                alias Type = typeof(mixin(Expr));
+            }
+            enum isPotentially = isPotentially!(Type, pred);
+        }
+    } else {
+        enum isPotentially = false;
+    }
 }
 
