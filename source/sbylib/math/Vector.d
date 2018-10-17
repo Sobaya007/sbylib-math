@@ -500,37 +500,3 @@ private static string getXyzwCode(uint[] xyzwPos) {
     }
     return code;
 }
-
-
-unittest {
-    vec2 a = vec2(1,2);
-    vec2 b = vec2(2,1);
-    assert(a.xy == vec2(1,2));
-    assert(a.xy == b.yx);
-    vec3 c;
-    c.yxz = vec3(3,2,1);
-    assert(c.zx == a);
-
-    assert(vec4(vec2(1), vec2(2)) == vec4(1,1,2,2));
-
-    assert(vec3(1) == vec3(1,1,1));
-
-    vec2 d = vec2(2,1);
-    d.xy = d.yx;
-    assert(d.xy == vec2(1,2));
-}
-
-unittest {
-    struct S {
-        auto get() { return vec3(0); }
-
-        alias get this;
-    }
-
-    static assert(isPotentially!(vec3, isArray));
-    static assert(isPotentially!(S, isArray));
-
-    S s;
-    vec3 b = s;
-    b += s;
-}
