@@ -190,7 +190,7 @@ public:
         }
     }
 
-    ref auto opDispatch(string s, ArgType)(ArgType val)
+    ref auto opDispatch(string s)(T val)
     if (s.all!(a => countUntil("xyzw", a) != -1)
                  || s.all!(a => countUntil("rgba", a) != -1)){
         enum isXYZW = s.all!(a => countUntil("xyzw", a) != -1);
@@ -203,10 +203,24 @@ public:
         } else {
             enum index = s.map!(a => countUntil(propertyString, a)).array;
             foreach (i,idx; index) {
-                this[idx] = val[i];
+                this[idx] = val;
             }
             return val;
         }
+    }
+
+    ref auto opDispatch(string s)(Vector!(T,s.length) val)
+    if (s.all!(a => countUntil("xyzw", a) != -1)
+                 || s.all!(a => countUntil("rgba", a) != -1)){
+        enum isXYZW = s.all!(a => countUntil("xyzw", a) != -1);
+        enum isRGBA = s.all!(a => countUntil("rgba", a) != -1);
+        static assert(isXYZW || isRGBA);
+        enum propertyString = isXYZW ? "xyzw" : isRGBA ? "rgba" : "";
+        enum index = s.map!(a => countUntil(propertyString, a)).array;
+        foreach (i,idx; index) {
+            this[idx] = val[i];
+        }
+        return val;
     }
 
     string toString() const { //=============================================文字列化
@@ -484,19 +498,3 @@ Vector!(T,3)[] mostDispersionBasis(T)(Vector!(T,3)[] vertices...)
     return base;
 }
 
-
-private string getUnaryCode(string op, int S) {
-    string code;
-    foreach (i; 0..S) {
-        code ~= "result.elements[" ~ to!string(i) ~ "] = " ~ op ~ "elements[" ~ to!string(i) ~ "];";
-    }
-    return code;
-}
-
-private static string getXyzwCode(uint[] xyzwPos) {
-    string code;
-    foreach (pos; xyzwPos) {
-        code ~= format!"result[i] = this[%d];"(pos);
-    }
-    return code;
-}

@@ -11,8 +11,8 @@ unittest {
     c.yxz = vec3(3,2,1);
     assert(c.zx == a);
 
-    //c.zx = 1;
-    //assert(c == vec3(1,3,1));
+    c.zx = 1;
+    assert(c == vec3(1,3,1));
 
     assert(vec4(vec2(1), vec2(2)) == vec4(1,1,2,2));
 
@@ -39,7 +39,7 @@ unittest {
 }
 
 unittest {
-    //static assert(__traits(hasMember, vec3, "undefinedMember") == false);
+    static assert(__traits(hasMember, vec3, "undefinedMember") == false);
     static assert(__traits(hasMember, vec3, "x") == true);
     static assert(__traits(hasMember, vec3, "yxz") == true);
     //static assert(isCallable!(vec3.x) == false);
