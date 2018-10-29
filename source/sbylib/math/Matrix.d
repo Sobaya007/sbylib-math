@@ -343,7 +343,7 @@ public:
                         );
             }
 
-            static Matrix perspective(T aspectWperH, Radian fovy, T nearZ, T farZ) {
+            static Matrix perspective(T aspectWperH, Angle fovy, T nearZ, T farZ) {
                 return Matrix(
                         1 / (aspectWperH * tan(fovy/2)), 0,                 0,                         0,
                         0,                               1 / (tan(fovy/2)), 0,                         0,
