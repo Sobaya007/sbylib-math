@@ -4,45 +4,73 @@ import sbylib.math;
 
 unittest {
     vec2 a = vec2(1,2);
-    vec2 b = vec2(2,1);
-    assert(a.xy == vec2(1,2));
-    assert(a.xy == b.yx);
-    vec3 c;
-    c.yxz = vec3(3,2,1);
-    assert(c.zx == a);
 
-    c.zx = 1;
-    assert(c == vec3(1,3,1));
+    // simple comparison
+    assert(a == vec2(1,2));
 
-    assert(vec4(vec2(1), vec2(2)) == vec4(1,1,2,2));
+    // vector calculation
+    assert(a + vec2(2,3) == vec2(3,5));
+    assert(a - vec2(9,8) == vec2(-8, -6));
 
-    assert(vec3(1) == vec3(1,1,1));
+    // scalar calculation
+    assert(a + 1 == vec2(2,3));
+    assert(a - 2 == vec2(-1,0));
+    assert(a * 3 == vec2(3,6));
+    assert(a / 4 ==  vec2(0.25, 0.5));
 
-    vec2 d = vec2(2,1);
-    d.xy = d.yx;
-    assert(d.xy == vec2(1,2));
+    // assignment
+    a = vec2(4,-2);
+    assert(a == vec2(4,-2));
+    const(vec2) b = vec2(2,2);
+    a = b;
+    assert(a == vec2(2));
 
-    d.x++;
-    assert(d == vec2(2));
+    // short expression
+    a = vec2(3);
+    assert(a == vec2(3,3));
+
+    // operator assign
+    a += vec2(2,1);
+    assert(a == vec2(5,4));
+    a -= vec2(1);
+    assert(a == vec2(4,3));
+    a *= 2;
+    assert(a == vec2(8,6));
+    a /= 2;
+    assert(a == vec2(4,3));
 }
 
 unittest {
-    struct S {
-        auto get() { return vec3(0); }
+    vec2 a = vec2(1,2);
+    
+    // read partial vector
+    assert(a.xy == vec2(1,2));
+    assert(a.yx == vec2(2,1));
+    assert(a.xyyx == vec4(1,2,2,1));
 
-        alias get this;
-    }
+    vec3 c;
 
-    S s;
-    vec3 b = s;
-    b += s;
+    // write partial vector
+    c.yxz = vec3(3,2,1);
+    assert(c == vec3(2,3,1));
+    c.xy = a.yx;
+    assert(c == vec3(2,1,1));
+    c.zx = 3;
+    assert(c == vec3(3,1,3));
+    c.xy = c.yx;
+    assert(c == vec3(1,3,3));
+    //c.xy += vec2(1); // cannot modify partial vector
+    c.y--; // single member can be modified
+    assert(c == vec3(1,2,3));
+
+    // concatination
+    assert(vec4(1, [2], vec2(3,4)) == vec4(1,2,3,4));
 }
 
 unittest {
     static assert(__traits(hasMember, vec3, "undefinedMember") == false);
     static assert(__traits(hasMember, vec3, "x") == true);
     static assert(__traits(hasMember, vec3, "yxz") == true);
-    //static assert(isCallable!(vec3.x) == false);
 }
 
 unittest {

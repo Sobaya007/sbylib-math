@@ -55,12 +55,12 @@ struct Vector(T, uint S)
 
     Vector opUnary(string op)() const {
         static if (op == "+")
-            return makeVector!("elements[]"); // a[] = +b[]; はダメらしい
+            return makeVector!("elements[]"); // a[] = +b[]; is an invalid expression
         else
             return makeVector!(op ~ "elements[]");
     }
 
-    Vector opAssign(AnotherType)(AnotherType a) {
+    Vector opAssign(AnotherType)(const AnotherType a) {
         static if (isVector!(AnotherType) || isArray!(AnotherType)) {
             this.assignAll(a);
         } else {
@@ -94,27 +94,38 @@ struct Vector(T, uint S)
     enum XYZW = "xyzw";
     enum RGBA = "rgba";
 
+    private static size_t[] createIndex(string propertyString, string s) {
+        size_t[] index = new size_t[s.length];
+        foreach (i; 0..s.length) {
+            index[i] = propertyString.countUntil(s[i]);
+        }
+        return index;
+    }
+
     mixin template Gen(string s) {
         enum isXYZW = s.all!(a => XYZW.canFind(a));
         enum isRGBA = s.all!(a => RGBA.canFind(a));
         static assert(isXYZW || isRGBA);
         enum propertyString = isXYZW ? XYZW : isRGBA ? RGBA : "";
-        enum index = s.map!(a => countUntil(propertyString, a)).array;
+        enum index = createIndex(propertyString, s);
     }
 
     auto ref opDispatch(string s)() inout
-        if (s.all!(a =>XYZW.canFind(a)) || s.all!(a => RGBA.canFind(a)))
+        if (s.length == 1)
     {
         mixin Gen!(s);
-        static if(s.length == 1) {
-            return elements[index[0]];
-        } else {
-            Vector!(T, s.length) result;
-            static foreach (i,idx; index) {
-                result[i] = elements[idx];
-            }
-            return result;
+        return elements[index[0]];
+    }
+
+    const(Vector!(T,s.length)) opDispatch(string s)() inout
+        if (s.length > 1)
+    {
+        mixin Gen!(s);
+        Vector!(T, s.length) result;
+        static foreach (i,idx; index) {
+            result[i] = elements[idx];
         }
+        return result;
     }
 
     ElementType opDispatch(string s)(ElementType val)
@@ -131,7 +142,7 @@ struct Vector(T, uint S)
         }
     }
 
-    Vector!(ElementType,s.length) opDispatch(string s)(Vector!(ElementType,s.length) val)
+    const(Vector!(ElementType,s.length)) opDispatch(string s)(Vector!(ElementType,s.length) val)
         if (s.all!(a =>XYZW.canFind(a)) || s.all!(a => RGBA.canFind(a)))
     {
         mixin Gen!(s);
