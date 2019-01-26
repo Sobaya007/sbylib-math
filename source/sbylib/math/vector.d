@@ -2,6 +2,7 @@ module sbylib.math.vector;
 
 import std.traits;
 import std.algorithm;
+import std.range : isInputRange, RangeElementType = ElementType;
 
 alias vec2  = Vector!(float, 2);
 alias vec3  = Vector!(float, 3);
@@ -44,6 +45,42 @@ if (__traits(isArithmetic, T))
         assignSingle(e);
     }
 
+    unittest {
+        import std.random : uniform;
+
+        foreach (k; 0..100) {
+            const e = uniform(-1.0f, +1.0f);
+            const v = vec3(e);
+            static foreach (i; 0..3) {
+                assert(v[i] == e);
+            }
+        }
+    }
+
+    /**
+    Constructor by InputRange.
+    This vector's all elements are filled by given range.
+
+    Params:
+        elements = values which fills the vector
+    */
+    this(Range)(Range r)
+    if (isInputRange!(Range) && is(RangeElementType!(Range) : T))
+    {
+        import std.range : front, popFront, empty;
+
+        static foreach (i; 0..S) {
+            this.elements[i] = r.front;
+            r.popFront;
+        }
+        assert(r.empty);
+    }
+
+    unittest {
+        import std.range : iota;
+        assert(vec3(iota(3)) == vec3(0,1,2));
+    }
+
     /**
     Constructor by combination of scalar, array, or vector.
 
@@ -52,6 +89,11 @@ if (__traits(isArithmetic, T))
     */
     this(Args...)(Args args) {
         assignAll(args);
+    }
+
+    unittest {
+        const v = Vector!(float,5)([1,2], 3, vec2(4,5));
+        assert(v == Vector!(float,5)(1,2,3,4,5));
     }
 
     /**
@@ -63,7 +105,18 @@ if (__traits(isArithmetic, T))
     Vector opUnary(string op)() const 
     if (op == "+")
     {
-        return makeVector!("elements[]"); // a[] = +b[]; is an invalid expression
+        return this;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (i; 0..100) {
+            const v = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+            assert(approxEqual(v * +1, +v));
+        }
     }
 
     /**
@@ -77,6 +130,16 @@ if (__traits(isArithmetic, T))
         return makeVector!(op ~ "elements[]");
     }
 
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (i; 0..100) {
+            const v = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+            assert(approxEqual(v * -1, -v));
+        }
+    }
 
     /**
     Binary operation between scalar, array or vector type.
@@ -89,6 +152,39 @@ if (__traits(isArithmetic, T))
     Vector opBinary(string op, AnotherType)(auto ref AnotherType value) const 
     { 
         return makeVector!("elements[]" ~ op ~ Expression!(AnotherType))(value);
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.array : array;
+        import std.random : uniform;
+        import std.math : approxEqual;
+
+        foreach (k; 0..100) {
+            const a = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+            const b = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+
+            const s = uniform(-1.0f, +1.0f);
+            const r = iota(4).map!(_ => uniform(-1.0f, +1.0f)).array;
+
+            static foreach (i; 0..4) {
+                assert(approxEqual(a[i] + b[i], (a + b)[i]));
+                assert(approxEqual(a[i] - b[i], (a - b)[i]));
+                assert(approxEqual(a[i] * b[i], (a * b)[i]));
+                assert(approxEqual(a[i] / b[i], (a / b)[i]));
+
+                assert(approxEqual(a[i] + s, (a + s)[i]));
+                assert(approxEqual(a[i] - s, (a - s)[i]));
+                assert(approxEqual(a[i] * s, (a * s)[i]));
+                assert(approxEqual(a[i] / s, (a / s)[i]));
+
+                assert(approxEqual(a[i] + r[i], (a + r)[i]));
+                assert(approxEqual(a[i] - r[i], (a - r)[i]));
+                assert(approxEqual(a[i] * r[i], (a * r)[i]));
+                assert(approxEqual(a[i] / r[i], (a / r)[i]));
+            }
+        }
     }
 
     /**
@@ -110,6 +206,34 @@ if (__traits(isArithmetic, T))
         }
     }
 
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.array : array;
+        import std.random : uniform;
+        import std.math : approxEqual;
+
+        foreach (k; 0..100) {
+            const a = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+
+            const s = uniform(-1.0f, +1.0f);
+            const r = iota(4).map!(_ => uniform(-1.0f, +1.0f)).array;
+
+            static foreach (i; 0..4) {
+
+                assert(approxEqual(s + a[i], (s + a)[i]));
+                assert(approxEqual(s - a[i], (s - a)[i]));
+                assert(approxEqual(s * a[i], (s * a)[i]));
+                assert(approxEqual(s / a[i], (s / a)[i]));
+
+                assert(approxEqual(r[i] + a[i], (r + a)[i]));
+                assert(approxEqual(r[i] - a[i], (r - a)[i]));
+                assert(approxEqual(r[i] * a[i], (r * a)[i]));
+                assert(approxEqual(r[i] / a[i], (r / a)[i]));
+            }
+        }
+    }
+
     /**
     Assign operation for vector, array, or scalar type.
     If the argument type is scalar, the value fills each element of this vector.
@@ -128,6 +252,19 @@ if (__traits(isArithmetic, T))
         return this;
     }
 
+    unittest {
+        vec3 v;
+
+        v = 3;
+        assert(approxEqual(v, vec3(3)));
+
+        v = [1,2,3];
+        assert(approxEqual(v, vec3(1,2,3)));
+
+        v = vec3(3,2,1);
+        assert(approxEqual(v, vec3(3,2,1)));
+    }
+
     /**
     Operator assign for vector, array, or scalar type.
     If the argument type is scalar, the value affects each element of this vector.
@@ -143,16 +280,19 @@ if (__traits(isArithmetic, T))
         return this;
     }
 
-    /**
-    Indexing operation.
-    
-    Params:
-        idx = index
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
 
-    Returns: i-th element of this vector.
-    */
-    T opIndex(size_t idx) const {
-        return this.elements[idx];
+        foreach (i; 0..100) {
+            auto v = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const v2 = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const v3 = v + v2;
+            v += v2;
+
+            assert(approxEqual(v, v3));
+        }
     }
 
     /**
@@ -163,8 +303,59 @@ if (__traits(isArithmetic, T))
 
     Returns: i-th element of this vector.
     */
-    ref T opIndex(size_t idx) {
-        return this.elements[idx];
+    T opIndex(size_t i) const 
+    in (i < S)
+    {
+        return this.elements[i];
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import std.array : array;
+
+        foreach (k; 0..100) {
+            float[4] e;
+            static foreach (i; 0..4) {
+                e[i] = uniform(-1.0f, +1.0f);
+            }
+            const v = vec4(e.array);
+
+            static foreach (i; 0..4) {
+                assert(v[i] == e[i]);
+            }
+        }
+    }
+
+    /**
+    Indexing operation.
+    
+    Params:
+        idx = index
+
+    Returns: i-th element of this vector.
+    */
+    ref T opIndex(size_t i) 
+    in (i < S)
+    {
+        return this.elements[i];
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (k; 0..100) {
+            vec4 v;
+
+            static foreach (i; 0..4) {{
+                const e = uniform(-1.0f, +1.0f);
+                v[i] = e;
+                assert(v[i] == e);
+            }}
+        }
     }
 
     /**
@@ -289,6 +480,11 @@ if (__traits(isArithmetic, T))
 
             return this.elements.array.any!(isNaN);
         }
+
+        unittest {
+            assert(vec3().hasNaN);
+            assert(!vec3(0).hasNaN);
+        }
     }
 
     private void assignAll(Args...)(Args args) {
@@ -342,8 +538,22 @@ Params:
 Returns: minimum vector of two vectors
 */
 Vector!(CommonType!(T,S),U) min(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
-    import std.math : fmin = min;
+    import std.algorithm : fmin = min;
     return reduceV!(fmin)(v, v2);
+}
+
+unittest {
+    import std.algorithm : map, fmin = min;
+    import std.range : iota;
+    import std.random : uniform;
+
+    foreach (k; 0..100) {
+        const a = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+        static foreach (i; 0..4) {
+            assert(fmin(a[i], b[i]) == min(a,b)[i]);
+        }
+    }
 }
 
 /**
@@ -356,8 +566,22 @@ Params:
 Returns: maximum vector of two vectors
 */
 Vector!(CommonType!(T,S),U) max(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
-    import std.math : fmax = max;
+    import std.algorithm : fmax = max;
     return reduceV!(fmax)(v, v2);
+}
+
+unittest {
+    import std.algorithm : map, fmax = max;
+    import std.range : iota;
+    import std.random : uniform;
+
+    foreach (k; 0..100) {
+        const a = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec4(iota(4).map!(_ => uniform(-1.0f, +1.0f)));
+        static foreach (i; 0..4) {
+            assert(fmax(a[i], b[i]) == max(a,b)[i]);
+        }
+    }
 }
 
 /**
@@ -377,6 +601,24 @@ CommonType!(T,S) dot(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
     return result;
 }
 
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : abs, approxEqual;
+    import sbylib.math.angle : deg, cos;
+    import sbylib.math.matrix : mat3;
+
+    foreach (i; 0..100) {
+        const point = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const axis = point.ortho.normalize;
+        const angle = uniform(0,180.0f).deg;
+        const r = mat3.axisAngle(axis, angle);
+        const point2 = r * point;
+        assert(approxEqual(dot(point, point2), length(point) * length(point2) * cos(angle)));
+    }
+}
+
 /**
 Calclates cross product of two vectors in 2D.
 Returned value is |v||v2| sin a
@@ -389,6 +631,28 @@ Returns: cross product of two vectors
 */
 CommonType!(T,S) cross(T,S)(Vector!(T,2) v, Vector!(S,2) v2) {
     return v.x * v2.y - v.y * v2.x;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual, abs;
+    import sbylib.math.angle : deg, acos, sin;
+
+    foreach (i; 0..100) {
+        const a = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const la = length(a);
+        const lb = length(b);
+
+        const angle = acos(dot(a,b) / (la * lb));
+
+        const c = cross(a,b);
+
+        assert(approxEqual(abs(c), la * lb * sin(angle), 1e-3));
+    }
 }
 
 /**
@@ -408,6 +672,30 @@ Vector!(CommonType!(T,S),3) cross(T,S)(Vector!(T,3) v, Vector!(S,3) v2) {
     return result;
 }
 
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+    import sbylib.math.angle : deg, acos, sin;
+
+    foreach (i; 0..100) {
+        const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const la = length(a);
+        const lb = length(b);
+
+        const angle = acos(dot(a,b) / (la * lb));
+
+        const c = cross(a,b);
+
+        assert(approxEqual(dot(a,c), 0));
+        assert(approxEqual(dot(b,c), 0));
+        assert(approxEqual(c.length, la * lb * sin(angle)));
+    }
+}
+
 /**
 Returns a vector which is orthognal to the given vector.
 
@@ -418,6 +706,18 @@ Returns: orthognal vector
 */
 Vector!(T,2) ortho(T)(Vector!(T,2) v) {
     return Vector!(T,2)(-v.y, v.x);
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const a = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(approxEqual(dot(a, a.ortho), 0));
+    }
 }
 
 /**
@@ -432,9 +732,21 @@ Vector!(T,3) ortho(T)(Vector!(T,3) v)
 if (__traits(isFloating, T))
 {
     if (v.x == 0 && v.z == 0) {
-        return normalize(cross(v, Vector!(T,S)(1,0,0)));
+        return normalize(cross(v, Vector!(T,3)(1,0,0)));
     } else {
-        return normalize(cross(v, Vector!(T,S)(0,1,0)));
+        return normalize(cross(v, Vector!(T,3)(0,1,0)));
+    }
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(approxEqual(dot(a, a.ortho), 0));
     }
 }
 
@@ -500,6 +812,18 @@ if (__traits(isFloating, T))
     return v / l;
 }
 
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const v = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(v == vec4(0) || safeNormalize(v).length.approxEqual(1));
+    }
+}
+
 /**
 Reduces an array of vector by the given function.
 
@@ -511,7 +835,7 @@ Returns: reduced vector
 Vector!(T,U) reduceV(alias pred, T, int U)(Vector!(T,U)[] v...) {
     Vector!(T,U) result = v[0];
     static foreach (i; 0..U) {
-        static foreach (j; 1..v.length) {
+        foreach (j; 1..v.length) {
             result[i] = pred(result[i], v[j][i]);
         }
     }
@@ -527,7 +851,26 @@ Params:
 Returns: unsigned area of triangle
 */
 T computeUnSignedArea(T)(Vector!(T,3)[3] positions...) {
-    return length(cross(positions[2] - positions[0], positions[1] - positions[0]));
+    return length(cross(positions[2] - positions[0], positions[1] - positions[0])) / 2;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const area = computeUnSignedArea(a,b,vec3(0));
+
+        const base = length(a);
+        const height = length(b-normalize(a) * dot(normalize(a),b));
+
+        assert(approxEqual(area, base * height / 2));
+    }
 }
 
 /**
@@ -546,9 +889,29 @@ T computeSignedVolume(T)(Vector!(T,3)[4] positions...) {
     T result = 0;
     static foreach (i; 0..3) {
         result += v[i].x * v[(i+1)%3].y * v[(i+2)%3].z;
-        reslut -= v[i].x * v[(i+2)%3].y * v[(i+1)%3].z;
+        result -= v[i].x * v[(i+2)%3].y * v[(i+1)%3].z;
     }
-    return result;
+    return result / 6;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual, abs;
+
+    foreach (i; 0..100) {
+        const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const b = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const c = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const volume = computeSignedVolume(a,b,c,vec3(0));
+
+        const area = computeUnSignedArea(a,b,vec3(0));
+        const height = dot(normalize(cross(a,b)), c);
+
+        assert(approxEqual(abs(volume), abs(area * height / 3)));
+    }
 }
 
 //与えられた点列に対し、分散が最大化するベクトルを含む正規直交基底を返す
@@ -564,6 +927,8 @@ Vector!(T,3)[3] mostDispersionBasis(T)(Vector!(T,3)[] vertices...)
     in(vertices.length > 0)
 {
     import std.algorithm : sum;
+    import sbylib.math.matrix : mat3, Matrix, diagonalizeForRealSym;
+
     const c = vertices.sum / vertices.length;
     mat3 vcm = mat3(0);
     foreach (ref v; vertices) {
@@ -571,12 +936,49 @@ Vector!(T,3)[3] mostDispersionBasis(T)(Vector!(T,3)[] vertices...)
         vcm += Matrix!(float,3,1)(r.array) * Matrix!(float,1,3)(r.array);
     }
     vcm /= vertices.length;
-    const diagonal = mat3.diagonalizeForRealSym(vcm);
+    const diagonal = diagonalizeForRealSym(vcm);
     Vector!(T,3)[3] result;
     static foreach (i; 0..3) {
         result[i] = diagonal.column[i].normalize;
     }
     return result;
+}
+
+unittest {
+    import std.algorithm : map, sum, max;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : abs, approxEqual;
+    import sbylib.math.angle : deg, cos;
+    import sbylib.math.matrix : mat3;
+
+    vec3[] points;
+    foreach (i; 0..100) {
+        points ~= vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+    }
+    const center = points.sum / 100;
+    foreach (i; 0..100) {
+        points[i] -= center;
+    }
+
+    float maxDispersion = 0;
+
+    foreach (i; 0..10) {
+        const axis = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+        const angle = uniform(0,180.0f).deg;
+        const r = mat3.axisAngle(axis, angle);
+        static foreach (j; 0..3) {
+            maxDispersion = max(maxDispersion, points.map!(p => (r * p)[j]^^2).sum);
+        }
+    }
+
+    const basis = mostDispersionBasis(points);
+    float idealMaxDispersion = 0;
+    static foreach (j; 0..3) {
+        idealMaxDispersion = max(idealMaxDispersion, points.map!(p => dot(basis[j],p)^^2).sum);
+    }
+
+    assert(idealMaxDispersion >= maxDispersion);
 }
 
 /**

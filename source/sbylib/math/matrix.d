@@ -2,17 +2,29 @@ module sbylib.math.matrix;
 
 import sbylib.math;
 import std.traits;
+import std.range : isInputRange, RangeElementType = ElementType;
 import std.format : format;
 
-alias mat2 = Matrix!(float, 2, 2);
-alias mat3 = Matrix!(float, 3, 3);
-alias mat4 = Matrix!(float, 4, 4);
+alias mat1x1 = Matrix!(float, 1, 1);
+alias mat1x2 = Matrix!(float, 1, 2);
+alias mat1x3 = Matrix!(float, 1, 3);
+alias mat1x4 = Matrix!(float, 1, 4);
+alias mat2x1 = Matrix!(float, 2, 1);
+alias mat2x2 = Matrix!(float, 2, 2);
 alias mat2x3 = Matrix!(float, 2, 3);
-alias mat3x2 = Matrix!(float, 3, 2);
 alias mat2x4 = Matrix!(float, 2, 4);
-alias mat4x2 = Matrix!(float, 4, 2);
+alias mat3x1 = Matrix!(float, 3, 1);
+alias mat3x2 = Matrix!(float, 3, 2);
+alias mat3x3 = Matrix!(float, 3, 3);
 alias mat3x4 = Matrix!(float, 3, 4);
+alias mat4x1 = Matrix!(float, 4, 1);
+alias mat4x2 = Matrix!(float, 4, 2);
 alias mat4x3 = Matrix!(float, 4, 3);
+alias mat4x4 = Matrix!(float, 4, 4);
+
+alias mat2 = mat2x2;
+alias mat3 = mat3x3;
+alias mat4 = mat4x4;
 
 enum isMatrix(T) = isInstanceOf!(Matrix, T);
 
@@ -39,6 +51,8 @@ if (__traits(isArithmetic, T))
     */
     alias ElementType = T;
 
+    alias array this;
+
     /**
     Constructor by element type.
     This matrix's each element is filled by given value.
@@ -50,18 +64,18 @@ if (__traits(isArithmetic, T))
         foreach (ref el; this.element) el = e;
     }
 
-    /**
-    Constructor by array.
-    This matrix's all elements are filled by given array.
+    unittest {
+        import std.random : uniform;
 
-    Params:
-        elements = values which fills the matrix
-    */
-    this(T[] elements)
-        in(elements.length == U * V)
-    {
-        static foreach (i; 0..U*V)
-            this[i/V,i%V] = elements[i];
+        foreach (k; 0..100) {
+            const e = uniform(-1.0f, +1.0f);
+            const m = mat3(e);
+            static foreach (i; 0..3) {
+                static foreach (j; 0..3) {
+                    assert(m[i,j] == e);
+                }
+            }
+        }
     }
 
     /**
@@ -78,6 +92,35 @@ if (__traits(isArithmetic, T))
     }
 
     /**
+    Constructor by InputRange.
+    This matrix's all elements are filled by given range.
+
+    Params:
+        elements = values which fills the matrix
+    */
+    this(Range)(Range r)
+    if (isInputRange!(Range) && is(RangeElementType!(Range) : T))
+    {
+        import std.range : front, popFront, empty;
+
+        static foreach (i; 0..U*V) {
+            this.element[i] = r.front;
+            r.popFront;
+        }
+        assert(r.empty);
+    }
+
+    unittest {
+        import std.range : iota;
+        const a = mat2(iota(4));
+        assert(a[0,0] == 0);
+        assert(a[0,1] == 1);
+        assert(a[1,0] == 2);
+        assert(a[1,1] == 3);
+    }
+
+
+    /**
     Constructor by array of array.
     This matrix's all elements are filled by given array.
 
@@ -90,6 +133,14 @@ if (__traits(isArithmetic, T))
                 this[i,j] = elements[j][i];
             }
         }
+    }
+
+    unittest {
+        const a = mat2([1,3],[2,4]);
+        assert(a[0,0] == 1);
+        assert(a[0,1] == 2);
+        assert(a[1,0] == 3);
+        assert(a[1,1] == 4);
     }
 
     /**
@@ -105,6 +156,66 @@ if (__traits(isArithmetic, T))
             static foreach (j; 0..V) {
                 this[i,j] = vectors[j][i];
             }
+        }
+    }
+
+    unittest {
+        const a = mat2(vec2(1,3),vec2(2,4));
+        assert(a[0,0] == 1);
+        assert(a[0,1] == 2);
+        assert(a[1,0] == 3);
+        assert(a[1,1] == 4);
+    }
+
+    /**
+    Unary operation for "+".
+
+    this is identity function
+
+    Returns: a matrix which is equal to this matrix
+    */
+    Matrix!(T,U,V) opUnary(string op)() const 
+    if (op == "+")
+    {
+        return this;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (i; 0..100) {
+            const m = mat4(iota(16).map!(_ => uniform(-1.0f, +1.0f)));
+            assert(approxEqual(m * +1, +m));
+        }
+    }
+
+    /**
+    Unary operation for "-".
+
+    Returns: a matrix whose sign is inverted
+    */
+    Matrix!(T,U,V) opUnary(string op)() const 
+    if (op == "-")
+    {
+        Matrix!(T,U,V) result;
+        static foreach (i; 0..U) {
+            static foreach (j; 0..V) {
+                result[i,j] = -this[i,j];
+            }
+        }
+        return result;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (i; 0..100) {
+            const m = mat4(iota(16).map!(_ => uniform(-1.0f, +1.0f)));
+            assert(approxEqual(m * -1, -m));
         }
     }
 
@@ -131,6 +242,28 @@ if (__traits(isArithmetic, T))
         return result;
     }
 
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import std.math : approxEqual;
+
+        foreach (k; 0..100) {
+            const a = mat4(iota(16).map!(_ => uniform(-1.0f, +1.0f)));
+            const b = mat4(iota(16).map!(_ => uniform(-1.0f, +1.0f)));
+
+            const c = a + b;
+            const d = a - b;
+
+            static foreach (i; 0..4) {
+                static foreach (j; 0..4) {
+                    assert(approxEqual(a[i,j] + b[i,j], c[i,j]));
+                    assert(approxEqual(a[i,j] - b[i,j], d[i,j]));
+                }
+            }
+        }
+    }
+
     /**
     Multiply operator between matrix.
     Another type matrix is allowed.
@@ -155,28 +288,17 @@ if (__traits(isArithmetic, T))
         return result;
     }
 
-    /**
-    Multiply operator between matrix.
-    Another type matrix is allowed.
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
 
-    Params: 
-        m = target matrix
-
-    Returns: calculated matrix
-    */
-    Matrix!(CommonType!(T,S),U,P) opBinaryRight(string op, S, uint P)(Matrix!(S,V,P) m) const
-    if (op == "*")
-    {
-        Matrix!(CommonType(T,S),U,P) result;
-        static foreach (i; 0..U) {
-            static foreach (j; 0..V) {
-                result[i,j] = 0;
-                static foreach (k; 0..V) {
-                    result[i,j] += m[i,k] * this[k,j];
-                }
-            }
+        foreach (i; 0..100) {
+            const a = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const b = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const c = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            assert(approxEqual((a * b) * c, a * (b * c)));
         }
-        return result;
     }
 
     /**
@@ -194,11 +316,31 @@ if (__traits(isArithmetic, T))
         static foreach (i; 0..U) {
             static foreach (j; 0..V) {
                 result[i,j] = mixin(format!q{
-                    this[i,j] %s e;
+                    this[i,j] %s e
                 }(op));
             }
         }
         return result;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import std.math : approxEqual;
+
+        foreach (k; 0..100) {
+            const m = mat4(16.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const s = uniform(-1.0f, +1.0f);
+            const m2 = m * s;
+            const m3 = m / s;
+            static foreach (i; 0..4) {
+                static foreach (j; 0..4) {
+                    assert(approxEqual(m[i,j] * s, m2[i,j]));
+                    assert(approxEqual(m[i,j] / s, m3[i,j]));
+                }
+            }
+        }
     }
 
     /**
@@ -222,6 +364,90 @@ if (__traits(isArithmetic, T))
         return result;
     }
 
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import sbylib.math.vector : dot, approxEqual;
+        foreach (i; 0..100) {
+            const m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const v = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const v2 = m * v;
+
+            assert(approxEqual(vec3(dot(m.row[0], v), dot(m.row[1], v), dot(m.row[2], v)), v2));
+        }
+    }
+
+    /**
+    operator assign between matrix type ("+" or "-")
+
+    Params: 
+        m = target matrix
+
+    Returns: calculated this matrix
+    */
+    Matrix opOpAssign(string op, S)(Matrix!(S,U,V) m) 
+    if (op == "+" || op == "-")
+    {
+        static foreach (i; 0..U) {
+            static foreach (j; 0..V) {
+                mixin(format!q{
+                    this[i,j] %s= m[i,j];
+                }(op));
+            }
+        }
+        return this;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (i; 0..100) {
+            auto m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const m2 = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const m3 = m + m2;
+            m += m2;
+
+            assert(approxEqual(m, m3));
+        }
+    }
+
+    /**
+    operator assign between matrix type (only "*")
+
+    Params: 
+        m = target matrix
+
+    Returns: calculated this matrix
+    */
+    Matrix opOpAssign(string op, S)(Matrix!(S,U,V) m) 
+    if (op == "*")
+    {
+        Matrix result = this * m;
+        static foreach (i; 0..U) {
+            static foreach (j; 0..V) {
+                this[i,j] = result[i,j];
+            }
+        }
+        return this;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        foreach (i; 0..100) {
+            auto m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const m2 = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const m3 = m * m2;
+            m *= m2;
+
+            assert(approxEqual(m, m3));
+        }
+    }
+
     /**
     operator assign between scalar type ("*" or "/")
 
@@ -243,45 +469,19 @@ if (__traits(isArithmetic, T))
         return this;
     }
 
-    /**
-    operator assign between matrix type ("+" or "-")
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
 
-    Params: 
-        m = target matrix
+        foreach (i; 0..100) {
+            auto m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const s = uniform(-1.0f, +1.0f);
+            const m2 = m * s;
+            m *= s;
 
-    Returns: calculated this matrix
-    */
-    Matrix!(CommonType!(T,S),U,V) opOpAssign(string op, S)(Matrix!(S,U,V) m) 
-    if (op == "+" || op == "-")
-    {
-        static foreach (i; 0..U) {
-            static foreach (j; 0..V) {
-                mixin(format!q{
-                    this[i,j] %s= m[i,j];
-                }(op));
-            }
+            assert(approxEqual(m, m2));
         }
-        return this;
-    }
-
-    /**
-    operator assign between matrix type (only "*")
-
-    Params: 
-        m = target matrix
-
-    Returns: calculated this matrix
-    */
-    Matrix!(CommonType!(T,S),U,V) opOpAssign(string op, S)(Matrix!(S,U,V) m) 
-    if (op == "*")
-    {
-        Matrii result = this * m;
-        static foreach (i; 0..U) {
-            static foreach (j; 0..V) {
-                this[i,j] = result[i,j];
-            }
-        }
-        return this;
     }
 
     /**
@@ -293,8 +493,30 @@ if (__traits(isArithmetic, T))
 
     Returns: selected value
     */
-    T opIndex(size_t i, size_t j) const {
+    T opIndex(size_t i, size_t j) const 
+    in (i < U && j < V)
+    {
         return element[j+i*V];
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (k; 0..100) {
+            vec3[3] v;
+            static foreach (i; 0..3) {
+                v[i] = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            }
+            const m = mat3(v);
+
+            static foreach (i; 0..3) {
+                static foreach (j; 0..3) {
+                    assert(m[i,j] == v[j][i]);
+                }
+            }
+        }
     }
 
     /**
@@ -306,8 +528,28 @@ if (__traits(isArithmetic, T))
 
     Returns: selected value
     */
-    ref T opIndex(size_t i, size_t j) {
+    ref T opIndex(size_t i, size_t j) 
+    in(i < U && j < V)
+    {
         return element[j+i*V];
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+
+        foreach (k; 0..100) {
+            mat3 m;
+
+            static foreach (i; 0..3) {{
+                static foreach (j; 0..3) {{
+                    const v = uniform(-1.0f, +1.0f);
+                    m[i,j] = v;
+                    assert(m[i,j] == v);
+                }}
+            }}
+        }
     }
 
     /**
@@ -317,6 +559,12 @@ if (__traits(isArithmetic, T))
     */
     T[U*V] array() inout {
         return element;
+    }
+
+    unittest {
+        import std.range : iota;
+        const a = mat2(iota(4));
+        assert(a.array == [0,1,2,3]);
     }
 
     /**
@@ -334,6 +582,13 @@ if (__traits(isArithmetic, T))
         return result;
     }
 
+    unittest {
+        import std.range : iota;
+        const a = mat2(iota(4));
+        assert(a.column[0] == vec2(0,2));
+        assert(a.column[1] == vec2(1,3));
+    }
+
     /**
     Get row array as array of vector
 
@@ -349,6 +604,13 @@ if (__traits(isArithmetic, T))
         return result;
     }
 
+    unittest {
+        import std.range : iota;
+        const a = mat2(iota(4));
+        assert(a.row[0] == vec2(0,1));
+        assert(a.row[1] == vec2(2,3));
+    }
+
     /**
     Converts to string
 
@@ -356,10 +618,13 @@ if (__traits(isArithmetic, T))
     */
     string toString() const {
         string res;
-        foreach (i; 0..U) {
+        static foreach (i; 0..U) {
             res ~= "\n\t";
-            foreach (j; 0..V) {
-                res ~= format!"%10f,"(this[i,j]);
+            static foreach (j; 0..V) {
+                static if (__traits(isFloating, T))
+                    res ~= format!"%10f,"(this[i,j]);
+                else
+                    res ~= format!"%d,"(this[i,j]);
             }
         }
         return res;
@@ -384,7 +649,62 @@ if (__traits(isArithmetic, T))
             return result;
         }
 
-        static if (U == 2 || U == 3) {
+        unittest {
+            import std.algorithm : map;
+            import std.range : iota;
+            import std.random : uniform;
+            import sbylib.math.vector : approxEqual;
+
+            foreach (i; 0..100) {
+                const v2 = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                assert(approxEqual(v2, mat2.identity * v2));
+
+                const v3 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                assert(approxEqual(v3, mat3.identity * v3));
+
+                const v4 = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                assert(approxEqual(v4, mat4.identity * v4));
+            }
+        }
+
+        /**
+        Returns scale matrix.
+
+        Params:
+            vec = scale vector
+
+        Returns: scale matrix
+        */
+        static Matrix scale(Vector!(T,U) vec) {
+            Matrix result;
+            static foreach (i; 0..U) {
+                static foreach (j; 0..U) {
+                    static if (i == j)
+                        result[i,j] = vec[i];
+                    else
+                        result[i,j] = 0;
+                }
+            }
+            return result;
+        }
+
+        unittest {
+            import std.algorithm : map;
+            import std.range : iota;
+            import std.random : uniform;
+            import sbylib.math.vector : approxEqual;
+
+            foreach (i; 0..100) {
+                const v2 = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                const s2 = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                assert(approxEqual(v2 * s2, mat2.scale(s2) * v2));
+
+                const v3 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                const s3 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                assert(approxEqual(v3 * s3, mat3.scale(s3) * v3));
+            }
+        }
+        static if (U == 3 || U == 4) {
             /**
             Returns translation matrix.
 
@@ -393,41 +713,43 @@ if (__traits(isArithmetic, T))
 
             Returns: translation matrix
             */
-            static Matrix translate(Vector!(T,U) vec) {
+            static Matrix translate(Vector!(T,U-1) vec) {
                 Matrix result;
                 static foreach (i; 0..U) {
                     static foreach (j; 0..U) {
-                        static if (i == j)
+                        static if (i == j) {
                             result[i,j] = 1;
-                        else static if (j == U-1)
-                            result[i,j] = vec[i];
-                        else
+                        } else static if (j == U-1) {
+                            static if (i < U-1) {
+                                result[i,j] = vec[i];
+                            } else {
+                                result[i,j] = 1;
+                            }
+                        } else {
                             result[i,j] = 0;
+                        }
                     }
                 }
                 return result;
             }
 
-            /**
-            Returns scale matrix.
+            unittest {
+                import std.algorithm : map;
+                import std.range : iota;
+                import std.random : uniform;
+                import sbylib.math.vector : approxEqual;
 
-            Params:
-                vec = scale vector
+                foreach (i; 0..100) {
+                    const p2 = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    const t2 = vec2(2.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    assert(approxEqual(p2 + t2, (mat3.translate(t2) * vec3(p2,1)).xy));
 
-            Returns: scale matrix
-            */
-            static Matrix scale(Vector!(T,U) vec) {
-                Matrix result;
-                static foreach (i; 0..U) {
-                    static foreach (j; 0..U) {
-                        static if (i == j)
-                            result[i,j] = vec[i];
-                        else
-                            result[i,j] = 0;
-                    }
+                    const p3 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    const t3 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    assert(approxEqual(p3 + t3, (mat4.translate(t3) * vec4(p3,1)).xyz));
                 }
-                return result;
             }
+
         }
         static if (U == 3) {
             /**
@@ -458,12 +780,15 @@ if (__traits(isArithmetic, T))
             }
 
             unittest {
+                import std.algorithm : map;
                 import std.random : uniform;
+                import std.range : iota;
                 import std.math : abs;
                 import sbylib.math.vector : dot;
+
                 foreach (i; 0..100) {
-                    const axis = vec3(uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f)).normalize;
-                    auto point = vec3(uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f));
+                    const axis = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+                    auto point = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
                     point = normalize(point - dot(point, axis) * axis);
                     const r = mat3.axisAngle(axis, 90.deg);
                     const point2 = r * point;
@@ -484,6 +809,7 @@ if (__traits(isArithmetic, T))
             */
             deprecated static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
                 import std.algorithm : clamp;
+
                 const v = cross(from, to);
                 const s = v.length;
                 if (s < 1e-5) return identity();
@@ -492,45 +818,22 @@ if (__traits(isArithmetic, T))
             }
 
             unittest {
+                /*
+                import std.algorithm : map;
                 import std.random : uniform;
+                import std.range : iota;
                 import sbylib.math.vector : approxEqual;
+
                 foreach (i; 0..100) {
-                    const a = vec3(uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f)).normalize;
-                    const b = vec3(uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f), uniform(-1.0f, +1.0f)).normalize;
+                    const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+                    const b = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
                     const c = rotFromTo(a,b) * a;
-                    //assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
+                    assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
                 }
+                */
             }
 
         } else static if (U == 4) {
-
-            /**
-            Returns translation matrix.
-
-            Params:
-                vec = translation vector
-
-            Returns: translation matrix
-            */
-            static Matrix translate(Vector!(T,3) vec) {
-                Matrix result;
-                static foreach (i; 0..U) {
-                    static foreach (j; 0..U) {
-                        static if (i == j) {
-                            result[i,j] = 1;
-                        } else static if (j == U-1) {
-                            static if (i < 3) {
-                                result[i,j] = vec[i];
-                            } else {
-                                result[i,j] = 1;
-                            }
-                        } else {
-                            result[i,j] = 0;
-                        }
-                    }
-                }
-                return result;
-            }
 
             /**
             Returns rotation matrix decided by its rotation axis and angle.
@@ -545,6 +848,22 @@ if (__traits(isArithmetic, T))
                 return Matrix!(T,3,3).axisAngle(v, angle).toMatrix4();
             }
 
+            unittest {
+                import std.algorithm : map;
+                import std.random : uniform;
+                import std.range : iota;
+                import std.math : abs;
+                import sbylib.math.vector : dot;
+                foreach (i; 0..100) {
+                    const axis = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+                    auto point = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    point = normalize(point - dot(point, axis) * axis);
+                    const r = mat4.axisAngle(axis, 90.deg);
+                    const point2 = (r * vec4(point, 1)).xyz;
+                    assert(abs(dot(point, point2)) < 1e-5);
+                }
+            }
+
             /**
             Returns rotation matrix which converts a vector to another vector.
 
@@ -554,8 +873,24 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+            deprecated static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
                 return Matrix!(T,3,3).rotFromTo(from, to).toMatrix4();
+            }
+
+            unittest {
+                /*
+                import std.algorithm : map;
+                import std.random : uniform;
+                import std.range : iota;
+                import sbylib.math.vector : approxEqual;
+
+                foreach (i; 0..100) {
+                    const a = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+                    const b = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+                    const c = (mat4.rotFromTo(a,b) * vec4(a,1)).xyz;
+                    assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
+                }
+                */
             }
 
             /**
@@ -569,7 +904,7 @@ if (__traits(isArithmetic, T))
             Returns: view transformation matrix
             */
             static Matrix lookAt(Vector!(T,3) eye, Vector!(T,3) vec, Vector!(T,3) up) {
-                Vector!(T,3) side = normalize(cross(up, vec));
+                const side = normalize(cross(up, vec));
                 up = normalize(cross(vec, side));
                 return Matrix(Vector!(T,4)(side, 0), Vector!(T,4)(up, 0), Vector!(T,4)(vec, 0),
                         Vector!(T,4)(-dot(eye,side),-dot(eye,up),-dot(eye,vec),1));
@@ -624,12 +959,29 @@ if (__traits(isArithmetic, T))
 
             Returns: perspective projection transform matrix
             */
-            static Matrix makeTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T,3) scale) {
+            static Matrix makeTRS(Vector!(T,3) trans, Matrix!(T,3,3) rot, Vector!(T,3) scale) {
                 return Matrix(
-                        scale[0] * rot[0,0], scale[1] * rot[0,1], scale[2] * rot[0,2], pos[0],
-                        scale[0] * rot[1,0], scale[1] * rot[1,1], scale[2] * rot[1,2], pos[1],
-                        scale[0] * rot[2,0], scale[1] * rot[2,1], scale[2] * rot[2,2], pos[2],
-                        0,0,0, 1);
+                        vec4(scale[0] * rot.column[0],0), 
+                        vec4(scale[1] * rot.column[1],0), 
+                        vec4(scale[2] * rot.column[2],0), 
+                        vec4(trans,1));
+            }
+
+            unittest {
+                import std.algorithm : map;
+                import std.random : uniform;
+                import std.range : iota;
+                import sbylib.math.vector : approxEqual;
+
+                foreach (i; 0..100) {
+                    const p = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    const t = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    const r = mat3.axisAngle(vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize,
+                            uniform(0,180.0).deg);
+                    const s = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+                    assert(approxEqual((mat4.makeTRS(t,r,s) * vec4(p,1)).xyz, r * (s * p) + t));
+                }
             }
             
             /**
@@ -642,13 +994,36 @@ if (__traits(isArithmetic, T))
 
             Returns: perspective projection transform matrix
             */
-            static Matrix makeInvertTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T, 3) scale) {
-                auto column = rot.column;
+            deprecated static Matrix makeInvertTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T, 3) scale) {
                 return Matrix(
-                        rot[0,0] / scale[0], rot[1,0] / scale[0], rot[2,0] / scale[0], -dot(column[0], pos) / scale[0],
-                        rot[0,1] / scale[1], rot[1,1] / scale[1], rot[2,1] / scale[1], -dot(column[1], pos) / scale[1],
-                        rot[0,2] / scale[2], rot[1,2] / scale[2], rot[2,2] / scale[2], -dot(column[2], pos) / scale[2],
+                        rot[0,0] / scale[0], rot[1,0] / scale[0], rot[2,0] / scale[0], -dot(rot.column[0], pos) / scale[0],
+                        rot[0,1] / scale[1], rot[1,1] / scale[1], rot[2,1] / scale[1], -dot(rot.column[1], pos) / scale[1],
+                        rot[0,2] / scale[2], rot[1,2] / scale[2], rot[2,2] / scale[2], -dot(rot.column[2], pos) / scale[2],
                         0,0,0, 1);
+            }
+
+            unittest {
+                /*
+                import std.algorithm : map;
+                import std.random : uniform;
+                import std.range : iota;
+
+                foreach (i; 0..100) {
+                    const t = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+                    const r = mat3.axisAngle(vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))), uniform(0,180.0).deg);
+                    const s = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+                    import std.stdio : writeln;
+
+                    writeln("t = ", t);
+                    writeln("r = ", r);
+                    writeln("s = ", s);
+
+                    writeln(mat4.makeTRS(t,r,s) * mat4.makeInvertTRS(t,r,s));
+
+                    assert(approxEqual(mat4.makeTRS(t,r,s) * mat4.makeInvertTRS(t,r,s), mat4.identity));
+                }
+                */
             }
         }
     }
@@ -672,6 +1047,10 @@ Matrix!(T,V,U) transpose(T, uint U, uint V)(Matrix!(T,U,V) m) {
     return r;
 }
 
+unittest {
+    assert(approxEqual(transpose(mat2x3(1,2,3, 4,5,6)), mat3x2(1,4, 2,5, 3,6)));
+}
+
 /**
 Returns shrinked 3x3 matrix
 The last row and column of the target are removed.
@@ -682,7 +1061,21 @@ Params:
 Returns: 3x3 matrix
 */
 Matrix!(T,3,3) toMatrix3(T)(Matrix!(T,4,4) m) {
-    return Matrix!(T,3,3)(m.element[0..3], m.element[4..7], m.element[8..11]);
+    return Matrix!(T,3,3)(m.column[0].xyz, m.column[1].xyz, m.column[2].xyz);
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import sbylib.math.vector : approxEqual;
+
+    foreach (i; 0..100) {
+        const p = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const m = mat4(16.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        assert(approxEqual((m * vec4(p,0)).xyz, m.toMatrix3() * p));
+    }
 }
 
 /**
@@ -707,6 +1100,20 @@ Matrix!(T,4,4) toMatrix4(T)(Matrix!(T,3,3) m) {
     }
     result[3,3] = 1;
     return result;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import sbylib.math.vector : approxEqual;
+
+    foreach (i; 0..100) {
+        const p = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        assert(approxEqual(m * p, (m.toMatrix4() * vec4(p,1)).xyz));
+    }
 }
 
 /**
@@ -753,22 +1160,40 @@ Quaternion!T toQuaternion(T)(Matrix!(T,3,3) m) {
     return result.normalize;
 }
 
-/**
-Get scale information from matrix
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import sbylib.math.vector : approxEqual;
+    import sbylib.math.quaternion : rotate;
 
-Returns: scale vector for the matrix
-*/
-Vector!(T,3) getScale(T)(Matrix!(T,3,3) m) {
-    return Vector!(T,3)(m[0,0], m[1,1], m[2,2]);
+    foreach (i; 0..100) {
+        const p = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const r = mat3.axisAngle(vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize,
+                uniform(0,180.0).deg);
+
+        assert(approxEqual(r * p, rotate(r.toQuaternion(), p), 1e-3));
+    }
 }
 
 /**
-Get scale information from matrix
+Get diagonal component from matrix
 
-Returns: scale vector for the matrix
+Returns: diagonal vector of the matrix
 */
-Vector!(T,3) getScale(T)(Matrix!(T,4,4) m) {
-    return m.toMatrix3.getScale;
+Vector!(T,U) diagonal(T,uint U)(Matrix!(T,U,U) m) {
+    Vector!(T,U) result;
+    static foreach (i; 0..U) {
+        result[i] = m[i,i];
+    }
+    return result;
+}
+
+unittest {
+    import std.range : iota;
+    import sbylib.math.vector : approxEqual;
+
+    assert(approxEqual(diagonal(mat3(iota(9))), vec3(0,4,8)));
 }
 
 /**
@@ -776,8 +1201,32 @@ Get translation information from matrix
 
 Returns: translation vector for the matrix
 */
-Vector!(T,3) getTranslation(T)(Matrix!(T,4,4) m) {
-    return Vector!(T,3)(m[0,3], m[1,3], m[2,3]);
+Vector!(T,U-1) getTranslation(T,uint U)(Matrix!(T,U,U) m) 
+if (U > 0)
+{
+    Vector!(T,U-1) result;
+    static foreach (i; 0..U-1) {
+        result[i] = m[i,U-1];
+    }
+    return result;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import sbylib.math.vector : approxEqual;
+
+    foreach (i; 0..100) {
+        const t = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const r = mat3.identity();
+        const s = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const m = mat4.makeTRS(t,r,s);
+
+        assert(approxEqual(diagonal(m).xyz, s));
+        assert(approxEqual(getTranslation(m), t));
+    }
 }
 
 /**
@@ -788,7 +1237,7 @@ Params:
 
 Returns: determinant value of the target matrix
 */
-T determinant(T)(Matrix!(2,2) m) {
+T determinant(T)(Matrix!(T,2,2) m) {
     return m[0,0]*m[1,1] - m[0,1]*m[1,0];
 }
 
@@ -800,7 +1249,7 @@ Params:
 
 Returns: determinant value of the target matrix
 */
-T determinant(T)(Matrix!(3,3) m) {
+T determinant(T)(Matrix!(T,3,3) m) {
     return
         + m[0,0]*m[1,1]*m[2,2]
         + m[0,1]*m[1,2]*m[2,0]
@@ -842,14 +1291,24 @@ Params:
 Returns: inverse matrix of the target matrix
 */
 Matrix!(T,2,2) invert(T)(Matrix!(T,2,2) m) {
-    const det = m[0,0]*m[1,1] - m[0,1]*m[1,0];
+    auto det = determinant(m);
     if (det != 0) det = 1 / det;
-    Matrix r;
+    Matrix!(T,2,2) r;
     r[0,0] = +m[1,1] * det;
     r[0,1] = -m[0,1] * det;
     r[1,0] = -m[1,0] * det;
     r[1,1] = +m[0,0] * det;
     return r;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.range : iota;
+    import std.random : uniform;
+    foreach (i; 0..100) {
+        const m = mat2(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(determinant(m) == 0 || approxEqual(m * invert(m), mat2.identity, 1e-3));
+    }
 }
 
 /**
@@ -861,15 +1320,9 @@ Params:
 Returns: inverse matrix of the target matrix
 */
 Matrix!(T,3,3) invert(T)(Matrix!(T,3,3) m) {
-    const det =
-        + m[0,0]*m[1,1]*m[2,2]
-        + m[0,1]*m[1,2]*m[2,0]
-        + m[0,2]*m[1,0]*m[2,1]
-        - m[0,0]*m[1,2]*m[2,1]
-        - m[0,1]*m[1,0]*m[2,2]
-        - m[0,2]*m[1,1]*m[2,0];
+    auto det = determinant(m);
     if (det != 0) det = 1 / det;
-    Matrix r;
+    Matrix!(T,3,3) r;
     r[0,0] = (m[1,1]*m[2,2] - m[1,2]*m[2,1]) * det;
     r[0,1] = (m[0,2]*m[2,1] - m[0,1]*m[2,2]) * det;
     r[0,2] = (m[0,1]*m[1,2] - m[0,2]*m[1,1]) * det;
@@ -882,6 +1335,16 @@ Matrix!(T,3,3) invert(T)(Matrix!(T,3,3) m) {
     return r;
 }
 
+unittest {
+    import std.algorithm : map;
+    import std.range : iota;
+    import std.random : uniform;
+    foreach (i; 0..100) {
+        const m = mat3(9.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(determinant(m) == 0 || approxEqual(m * invert(m), mat3.identity, 1e-3));
+    }
+}
+
 /**
 Get 4x4 inverse matrix
 
@@ -891,6 +1354,8 @@ Params:
 Returns: inverse matrix of the target matrix
 */
 Matrix!(T,4,4) invert(T)(Matrix!(T,4,4) m) {
+    auto det = determinant(m);
+    if (det != 0) det = 1 / det;
     const e2233_2332 = m[2,2] * m[3,3] - m[2,3] * m[3,2];
     const e2133_2331 = m[2,1] * m[3,3] - m[2,3] * m[3,1];
     const e2132_2231 = m[2,1] * m[3,2] - m[2,2] * m[3,1];
@@ -909,13 +1374,6 @@ Matrix!(T,4,4) invert(T)(Matrix!(T,4,4) m) {
     const e2031_2130 = m[2,0] * m[3,1] - m[2,1] * m[3,0];
     const e1031_1130 = m[1,0] * m[3,1] - m[1,1] * m[3,0];
     const e1021_1120 = m[1,0] * m[2,1] - m[1,1] * m[2,0];
-    const det =
-        m[0,0] * (m[1,1] * e2233_2332 - m[1,2] * e2133_2331 + m[1,3] * e2132_2231) -
-        m[0,1] * (m[1,0] * e2233_2332 - m[1,2] * e2033_2330 + m[1,3] * e2032_2230) +
-        m[0,2] * (m[1,0] * e2133_2331 - m[1,1] * e2033_2330 + m[1,3] * e2031_2130) -
-        m[0,3] * (m[1,0] * e2132_2231 - m[1,1] * e2032_2230 + m[1,2] * e2031_2130)
-    ;
-    if (det != 0) det = 1 / det;
     const t00 =  m[1,1] * e2233_2332 - m[1,2] * e2133_2331 + m[1,3] * e2132_2231;
     const t01 = -m[0,1] * e2233_2332 + m[0,2] * e2133_2331 - m[0,3] * e2132_2231;
     const t02 =  m[0,1] * e1233_1332 - m[0,2] * e1133_1331 + m[0,3] * e1132_1231;
@@ -932,7 +1390,7 @@ Matrix!(T,4,4) invert(T)(Matrix!(T,4,4) m) {
     const t31 =  m[0,0] * e2132_2231 - m[0,1] * e2032_2230 + m[0,2] * e2031_2130;
     const t32 = -m[0,0] * e1132_1231 + m[0,1] * e1032_1230 - m[0,2] * e1031_1130;
     const t33 =  m[0,0] * e1122_1221 - m[0,1] * e1022_1220 + m[0,2] * e1021_1120;
-    Matrix r;
+    Matrix!(T,4,4) r;
     r[0,0] =  det * t00;
     r[0,1] =  det * t01;
     r[0,2] =  det * t02;
@@ -952,6 +1410,16 @@ Matrix!(T,4,4) invert(T)(Matrix!(T,4,4) m) {
     return r;
 }
 
+unittest {
+    import std.algorithm : map;
+    import std.range : iota;
+    import std.random : uniform;
+    foreach (i; 0..100) {
+        const m = mat4(16.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        assert(determinant(m) == 0 || approxEqual(m * invert(m), mat4.identity, 1e-3));
+    }
+}
+
 /**
 Calculate the diagonalize matrix of the target matrix.
 
@@ -960,10 +1428,12 @@ Params:
 
 Returns: the diagonalize matrix
 */
-Matrix!(T,U,U) diagonalizeForRealSym(T, uint U)(Matrix!(T,U,U) m){
+Matrix!(T,U,U) diagonalizeForRealSym(T, uint U)(Matrix!(T,U,U) m, T eps = 1e-5) 
+if (__traits(isFloating, T))
+{
     import std.math : abs, sqrt;
 
-    T getMaxValue(ref Matrix m, out uint p, out uint q) {
+    T getMaxValue(ref Matrix!(T,U,U) m, out uint p, out uint q) {
         T max = 0;
         foreach (i; 0..U) {
             foreach (j; 0..U) {
@@ -978,12 +1448,12 @@ Matrix!(T,U,U) diagonalizeForRealSym(T, uint U)(Matrix!(T,U,U) m){
         return max;
     }
 
-    auto result = identity;
+    auto result = Matrix!(T,U,U).identity;
     T max;
     uint p, q;
     uint bp = 114514, bq = 114514;
     while (true) {
-        if ((max = getMaxValue(m, p, q)) < 1e-3) break;
+        if ((max = getMaxValue(m, p, q)) < eps) break;
         if (p == bp && q == bq) break;
         const pp = m[p,p];
         const pq = m[p,q];
@@ -994,11 +1464,11 @@ Matrix!(T,U,U) diagonalizeForRealSym(T, uint U)(Matrix!(T,U,U) m){
         T s = sqrt((1.0-gamma) / 2.0);
         const c = sqrt((1.0+gamma) / 2.0);
         if (alpha * beta < 0) s = -s;
-        static foreach (i; 0..U) {
+        static foreach (i; 0..U) {{
             const tmp = c * m[p, i] - s * m[q, i];
             m[q, i] = s * m[p, i] + c * m[q, i];
             m[p, i] = tmp;
-        }
+        }}
         static foreach (i; 0..U) {
             m[i,p] = m[p,i];
             m[i,q] = m[q,i];
@@ -1007,13 +1477,97 @@ Matrix!(T,U,U) diagonalizeForRealSym(T, uint U)(Matrix!(T,U,U) m){
         m[p,q] = s*c*(pp-qq) + (c*c-s*s) * pq;
         m[q,p] = m[p,q];
         m[q,q] = s*s*pp + c*c*qq + 2*s*c*pq;
-        static foreach (i; 0..U) {
+        static foreach (i; 0..U) {{
             const tmp = c*result[i,p]-s*result[i,q];
             result[i,q] = s*result[i,p] + c*result[i,q];
             result[i,p] = tmp;
-        }
+        }}
         bp = p;
         bq = q;
     }
     return result;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.array : array;
+    import std.range : iota;
+    import std.random : uniform;
+    import sbylib.math.vector : vapproxEqual = approxEqual;
+    foreach (k; 0..100) {
+        // m is real symmetric matrix
+        auto m = mat4(16.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        static foreach (i; 0..4) {
+            static foreach (j; 0..4) {
+                m[i,j] = m[j,i];
+            }
+        }
+        assert(m.isSymmetric);
+
+        // p is diagonalize matrix of m
+        const p = diagonalizeForRealSym(m);
+
+        // a is diagonalized matrix
+        const a = transpose(p) * m * p;
+
+        // successfully diagonalized
+        assert(approxEqual(a, mat4.scale(diagonal(a)), 1e-3));
+
+        // if m is real symmetric, p is orthognal matrix
+        assert(p.isOrthogonal);
+
+        static foreach (i; 0..4) {{
+            const eigenVector = p.column[i];
+            const eigenValue = a[i,i];
+
+            assert(vapproxEqual(m * eigenVector, eigenVector * eigenValue, 1e-3));
+        }}
+    }
+}
+
+/**
+Returns true if the given matrix is symmetric.
+
+Params:
+    m = target matrix
+    eps = criteria of approximation
+
+Returns: true if the given matrix is symmetric
+*/
+bool isSymmetric(T, uint U)(Matrix!(T,U,U) m, T eps = 1e-5) {
+    return approxEqual(m, transpose(m), eps);
+}
+
+/**
+Returns true if the given matrix is orthogonal.
+
+Params:
+    m = target matrix
+    eps = criteria of approximation
+
+Returns: true if the given matrix is orthogonal
+*/
+bool isOrthogonal(T, uint U)(Matrix!(T,U,U) m, T eps = 1e-5) {
+    return approxEqual(invert(m), transpose(m), eps);
+}
+
+/**
+Returns true if the distance of each element is less than eps.
+
+Params:
+    a = target point
+    b = target point
+    eps = criteria of approximation
+
+Returns: true if 2 vectors are approximately equal.
+*/
+bool approxEqual(T,uint U,uint V)(Matrix!(T,U,V) a, Matrix!(T,U,V) b, T eps = 1e-5) {
+    import std.math : abs;
+
+    static foreach (i; 0..U) {
+        static foreach (j; 0..V) {
+            if (abs(a[i,j] - b[i,j]) > eps) return false;
+        }
+    }
+    return true;
 }
