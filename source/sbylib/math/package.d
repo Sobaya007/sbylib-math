@@ -5,8 +5,7 @@ module sbylib.math;
  */
 
 public:
-import sbylib.math.Angle;
-import sbylib.math.Matrix;
-import sbylib.math.NumLimited;
-import sbylib.math.Quaternion;
-import sbylib.math.Vector;
+import sbylib.math.angle;
+import sbylib.math.matrix;
+import sbylib.math.quaternion;
+import sbylib.math.vector;
