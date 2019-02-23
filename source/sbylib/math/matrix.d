@@ -804,21 +804,17 @@ if (__traits(isArithmetic, T))
                 to = after vector, which must be normalized
 
             Returns: rotation matrix
-
-            TODO: bug fix
             */
-            deprecated static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+            static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
                 import std.algorithm : clamp;
 
-                const v = cross(from, to);
-                const s = v.length;
-                if (s < 1e-5) return identity();
-                const angle = asin(clamp(s, -1, +1));
-                return axisAngle(-normalize(v), angle);
+                const v = cross(from, to).normalize;
+                const c = dot(from, to);
+                const angle = -acos(clamp(c, -1, +1));
+                return axisAngle(normalize(v), angle);
             }
 
             unittest {
-                /*
                 import std.algorithm : map;
                 import std.random : uniform;
                 import std.range : iota;
@@ -830,7 +826,6 @@ if (__traits(isArithmetic, T))
                     const c = rotFromTo(a,b) * a;
                     assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
                 }
-                */
             }
 
         } else static if (U == 4) {
@@ -873,12 +868,11 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            deprecated static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+            static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
                 return Matrix!(T,3,3).rotFromTo(from, to).toMatrix4();
             }
 
             unittest {
-                /*
                 import std.algorithm : map;
                 import std.random : uniform;
                 import std.range : iota;
@@ -890,7 +884,6 @@ if (__traits(isArithmetic, T))
                     const c = (mat4.rotFromTo(a,b) * vec4(a,1)).xyz;
                     assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
                 }
-                */
             }
 
             /**
@@ -994,7 +987,7 @@ if (__traits(isArithmetic, T))
 
             Returns: perspective projection transform matrix
             */
-            deprecated static Matrix makeInvertTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T, 3) scale) {
+            static Matrix makeInvertTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T, 3) scale) {
                 return Matrix(
                         rot[0,0] / scale[0], rot[1,0] / scale[0], rot[2,0] / scale[0], -dot(rot.column[0], pos) / scale[0],
                         rot[0,1] / scale[1], rot[1,1] / scale[1], rot[2,1] / scale[1], -dot(rot.column[1], pos) / scale[1],
@@ -1003,27 +996,17 @@ if (__traits(isArithmetic, T))
             }
 
             unittest {
-                /*
                 import std.algorithm : map;
                 import std.random : uniform;
                 import std.range : iota;
 
                 foreach (i; 0..100) {
                     const t = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
-                    const r = mat3.axisAngle(vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))), uniform(0,180.0).deg);
+                    const r = mat3.axisAngle(vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize, uniform(0,180.0).deg);
                     const s = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
-
-                    import std.stdio : writeln;
-
-                    writeln("t = ", t);
-                    writeln("r = ", r);
-                    writeln("s = ", s);
-
-                    writeln(mat4.makeTRS(t,r,s) * mat4.makeInvertTRS(t,r,s));
 
                     assert(approxEqual(mat4.makeTRS(t,r,s) * mat4.makeInvertTRS(t,r,s), mat4.identity));
                 }
-                */
             }
         }
     }

@@ -92,7 +92,7 @@ if (__traits(isArithmetic, T))
     }
 
     unittest {
-        const v = Vector!(float,5)([1,2], 3, vec2(4,5));
+        const v = Vector!(float,5)(1,2,3, vec2(4,5));
         assert(v == Vector!(float,5)(1,2,3,4,5));
     }
 
@@ -258,7 +258,8 @@ if (__traits(isArithmetic, T))
         v = 3;
         assert(approxEqual(v, vec3(3)));
 
-        v = [1,2,3];
+        int[3] v2 = [1,2,3];
+        v = v2;
         assert(approxEqual(v, vec3(1,2,3)));
 
         v = vec3(3,2,1);
@@ -488,26 +489,56 @@ if (__traits(isArithmetic, T))
     }
 
     private void assignAll(Args...)(Args args) {
-        T[] head = elements;
-        static foreach (arg; args) {
-            assign(head, arg);
+        assignAll!(0)(args);
+    }
+
+    private void assignAll(size_t offset, Args...)(Args args) 
+        if (Args.length > 0 && offset + Count!(Args) == Dimension)
+    {
+        assign!(offset)(args[0]);
+        assignAll!(offset + Count!(Args[0]))(args[1..$]);
+    }
+
+    private void assignAll(size_t offset)() {
+        static assert(offset == Dimension);
+    }
+
+    private void assign(size_t offset, AnotherType)(AnotherType value) 
+        if (isVector!(AnotherType) && offset + Count!(AnotherType) <= Dimension)
+    {
+        assign!(offset)(value.elements);
+    }
+
+    private void assign(size_t offset, AnotherType)(AnotherType value) 
+        if (isStaticArray!(AnotherType) && offset + Count!(AnotherType) <= Dimension)
+    {
+        static foreach (i; 0..Count!(AnotherType)) {
+            assign!(offset+i)(value[i]);
         }
     }
 
-    private void assign(AnotherType)(ref T[] head, AnotherType value) {
-        static if (isVector!(AnotherType)) {
-            assign(head, value.elements);
-        } else static if (isArray!(AnotherType)) {
-            foreach (ref v; value) assign(head, v);
-        } else {
-            assert(head.length > 0);
-            head[0] = value;
-            head = head[1..$];
-        }
+    private void assign(size_t index, AnotherType : T)(AnotherType value) {
+        this[index] = value;
     }
 
     private void assignSingle(AnotherType)(AnotherType value) {
         this.elements[] = value;
+    }
+
+    private template Count(Types...) 
+        if (Types.length > 1)
+    {
+        enum Count = Count!(Types[0]) + Count!(Types[1..$]);
+    }
+
+    private template Count(Type) {
+        static if (isVector!(Type)) {
+            enum Count = Count!(typeof(Type.elements));
+        } else static if (isStaticArray!(Type)) {
+            enum Count = Type.length * Count!(ForeachType!(Type));
+        } else static if (is(Type : T)) {
+            enum Count = 1;
+        }
     }
 
     private template Expression(AnotherType) {

@@ -62,9 +62,6 @@ unittest {
     //c.xy += vec2(1); // cannot modify partial vector
     c.y--; // single member can be modified
     assert(c == vec3(1,2,3));
-
-    // concatination
-    assert(vec4(1, [2], vec2(3,4)) == vec4(1,2,3,4));
 }
 
 unittest {

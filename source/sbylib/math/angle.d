@@ -20,7 +20,7 @@ struct Angle {
     Angle opUnary(string op)() const
     if (op == "-")
     {
-        return Degree(mixin(op ~ "this.deg"));
+        return Angle(mixin(op ~ "this.deg"));
     }
 
     /**
@@ -48,7 +48,7 @@ struct Angle {
     Angle opBinaryRight(string op)(float v) const
     if (op == "*" || op == "/") 
     {
-        return Degree(mixin("v" ~ op ~ "this.deg"));
+        return Angle(mixin("v" ~ op ~ "this.deg"));
     }
 
     /**
@@ -60,7 +60,7 @@ struct Angle {
     Returns: calculated angle struct
     */
     Angle opBinary(string op)(Angle a) const {
-        return Degree(mixin("this.deg " ~ op ~ " a.deg"));
+        return Angle(mixin("this.deg " ~ op ~ " a.deg"));
     }
 
     /**
