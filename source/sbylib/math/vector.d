@@ -856,6 +856,37 @@ unittest {
 }
 
 /**
+Returns a linear interpolated vector
+
+Params:
+    v1 = target vector
+    v2 = target vector
+    t  = interpolation coefficient
+
+Returns: interpolated vector
+*/
+Vector!(T,U) mix(T,uint U)(Vector!(T,U) v1, Vector!(T,U) v2, T t) {
+    return (1-t) * v1 + t * v2;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const v1 = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        const v2 = vec4(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+        foreach (j; 1..100) {
+            const t = j * 0.01;
+            const v = mix(v1, v2, t);
+            assert(dot(normalize(v1-v), normalize(v2-v)).approxEqual(-1));
+        }
+    }
+}
+
+/**
 Reduces an array of vector by the given function.
 
 Params:

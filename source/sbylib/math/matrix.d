@@ -811,7 +811,7 @@ if (__traits(isArithmetic, T))
                 const v = cross(from, to).normalize;
                 const c = dot(from, to);
                 const angle = -acos(clamp(c, -1, +1));
-                return axisAngle(normalize(v), angle);
+                return axisAngle(v, angle);
             }
 
             unittest {

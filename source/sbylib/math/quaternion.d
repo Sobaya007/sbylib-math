@@ -293,6 +293,42 @@ if (__traits(isArithmetic, T))
     }
 
     /**
+    Binary operation between scalar type for "*".
+
+    Params:
+        e = target scalar value
+
+    Returns: calculated quaternion
+    */
+    Quaternion!(CommonType!(T,S)) opBinaryRight(string op, S)(S e) const
+    if (__traits(isArithmetic, S) && (op == "*"))
+    {
+        Quaternion!(CommonType!(T,S)) result;
+        static foreach (i; 0..4) {
+            result[i] = mixin(format!q{
+                this[i] %s e
+            }(op));
+        }
+        return result;
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import std.math : approxEqual;
+
+        foreach (k; 0..100) {
+            const q = quat(4.iota.map!(_ => uniform(-1.0f, +1.0f)));
+            const s = uniform(-1.0f, +1.0f);
+            const q2 = s * q;
+            static foreach (i; 0..4) {
+                assert(approxEqual(s * q[i], q2[i]));
+            }
+        }
+    }
+
+    /**
     Operator assign for quaternion.
     This function supports "+" or "-" operation.
 
@@ -661,6 +697,55 @@ unittest {
         const axis = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
         const angle = uniform(0,180.0f).deg;
         assert(approxEqual(p.length, quat.axisAngle(axis, angle).rotate(p).length));
+    }
+}
+
+/**
+Interpolate two quaternions spherically.
+
+Params:
+    q1 = target quaternion
+    q2 = target quaternion
+    t  = interpolation coefficient (0 <= t <= 1)
+
+Returns: Interpolated quaternion
+*/
+Quaternion!(T) slerp(T)(Quaternion!(T) q1, Quaternion!(T) q2, T t) {
+    import std.math : approxEqual;
+
+    const c = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
+    if (c < 0) return slerp(q1, -q2, t);
+    if (c.approxEqual(1, float.epsilon)) return q1;
+    const angle = acos(c);
+    const s = sin(angle);
+
+    return sin((1-t)*angle) / s * q1 + sin(t*angle) / s * q2;
+}
+
+unittest {
+    import std.algorithm : map;
+    import std.random : uniform;
+    import std.range : iota;
+    import sbylib.math.vector : normalize, length;
+    import std.math : approxEqual;
+
+    foreach (i; 0..100) {
+        const p = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f)));
+
+        const axis1 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+        const angle1 = uniform(0,180.0f).deg;
+        const q1 = quat.axisAngle(axis1, angle1);
+
+        const axis2 = vec3(3.iota.map!(_ => uniform(-1.0f, +1.0f))).normalize;
+        const angle2 = uniform(0,180.0f).deg;
+        const q2 = quat.axisAngle(axis2, angle2);
+
+        foreach (j; 0..100) {
+            const t = j * 0.01;
+            const q = slerp(q1, q2, t);
+            assert(approxEqual(p.length, q.rotate(p).length));
+        }
+
     }
 }
 
