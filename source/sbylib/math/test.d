@@ -121,3 +121,8 @@ unittest {
     vec2 a = s * vec2(0);
 
 }
+
+unittest {
+    vec4 v;
+    assert(!is(typeof({ v = mat4(0); })));
+}

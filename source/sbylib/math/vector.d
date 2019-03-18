@@ -235,20 +235,33 @@ if (__traits(isArithmetic, T))
     }
 
     /**
-    Assign operation for vector, array, or scalar type.
-    If the argument type is scalar, the value fills each element of this vector.
+    Assign operation for vector or array.
 
     Params:
         value = assigned value
 
     Returns: this vector after assigned.
     */
-    Vector opAssign(AnotherType)(const AnotherType value) {
-        static if (isVector!(AnotherType) || isArray!(AnotherType)) {
-            this.assignAll(value);
-        } else {
-            this.assignSingle(value);
-        }
+    Vector opAssign(AnotherType)(const AnotherType value) 
+        if (isVector!(AnotherType) || isArray!(AnotherType))
+    {
+        this.assignAll(value);
+        return this;
+    }
+
+    /**
+    Assign operation for scalar.
+    The value fills each element of this vector.
+
+    Params:
+        value = assigned value
+
+    Returns: this vector after assigned.
+    */
+    Vector opAssign(AnotherType)(const AnotherType value) 
+        if (!isVector!(AnotherType) && !isArray!(AnotherType) && is(typeof({ T v; v = AnotherType.init; })))
+    {
+        this.assignSingle(value);
         return this;
     }
 
