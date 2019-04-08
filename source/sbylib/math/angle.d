@@ -154,7 +154,7 @@ private mixin template RadianInputFunction(string func) {
     import std.format;
     mixin(format!q{
 
-auto %s(Angle angle) {
+auto %s(const Angle angle) {
     import std.math : %s;
     return %s(angle.asRadian());
 }
@@ -178,7 +178,7 @@ private mixin template AngleInputFunction(string func) {
     import std.format;
     mixin(format!q{
 
-auto %s(Angle angle) {
+auto %s(const Angle angle) {
     import std.math : %s;
     return %s(angle.asDegree()).deg;
 }

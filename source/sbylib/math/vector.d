@@ -581,7 +581,7 @@ Params:
 
 Returns: minimum vector of two vectors
 */
-Vector!(CommonType!(T,S),U) min(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
+Vector!(CommonType!(T,S),U) min(T,S,uint U)(const Vector!(T,U) v, const Vector!(S,U) v2) {
     import std.algorithm : fmin = min;
     return reduceV!(fmin)(v, v2);
 }
@@ -609,7 +609,7 @@ Params:
 
 Returns: maximum vector of two vectors
 */
-Vector!(CommonType!(T,S),U) max(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
+Vector!(CommonType!(T,S),U) max(T,S,uint U)(const Vector!(T,U) v, const Vector!(S,U) v2) {
     import std.algorithm : fmax = max;
     return reduceV!(fmax)(v, v2);
 }
@@ -637,7 +637,7 @@ Params:
 
 Returns: dot product of two vectors
 */
-CommonType!(T,S) dot(T,S,uint U)(Vector!(T,U) v, Vector!(S,U) v2) {
+CommonType!(T,S) dot(T,S,uint U)(const Vector!(T,U) v, const Vector!(S,U) v2) {
     CommonType!(T,S) result = 0;
     static foreach (i; 0..U) {
         result += v[i] * v2[i];
@@ -673,7 +673,7 @@ Params:
 
 Returns: cross product of two vectors
 */
-CommonType!(T,S) cross(T,S)(Vector!(T,2) v, Vector!(S,2) v2) {
+CommonType!(T,S) cross(T,S)(const Vector!(T,2) v, const Vector!(S,2) v2) {
     return v.x * v2.y - v.y * v2.x;
 }
 
@@ -708,7 +708,7 @@ Params:
 
 Returns: cross product of two vectors
 */
-Vector!(CommonType!(T,S),3) cross(T,S)(Vector!(T,3) v, Vector!(S,3) v2) {
+Vector!(CommonType!(T,S),3) cross(T,S)(const Vector!(T,3) v, const Vector!(S,3) v2) {
     Vector!(CommonType!(T,S),3) result;
     static foreach (i; 0..3) {
         result[i] = v[(i+1)%3] * v2[(i+2)%3] - v[(i+2)%3] * v2[(i+1)%3];
@@ -748,7 +748,7 @@ Params:
 
 Returns: orthognal vector
 */
-Vector!(T,2) ortho(T)(Vector!(T,2) v) {
+Vector!(T,2) ortho(T)(const Vector!(T,2) v) {
     return Vector!(T,2)(-v.y, v.x);
 }
 
@@ -772,7 +772,7 @@ Params:
 
 Returns: orthognal vector
 */
-Vector!(T,3) ortho(T)(Vector!(T,3) v) 
+Vector!(T,3) ortho(T)(const Vector!(T,3) v) 
 if (__traits(isFloating, T))
 {
     if (v.x == 0 && v.z == 0) {
@@ -802,7 +802,7 @@ Params:
 
 Returns: squared length of the given vector
 */
-T lengthSq(T,uint U)(Vector!(T,U) v) {
+T lengthSq(T,uint U)(const Vector!(T,U) v) {
     T result = 0;
     static foreach (i; 0..U) {
         result += v[i] * v[i];
@@ -818,7 +818,7 @@ Params:
 
 Returns: length of the given vector
 */
-T length(T,uint U)(Vector!(T,U) v) 
+T length(T,uint U)(const Vector!(T,U) v) 
 if (__traits(isFloating, T))
 {
     import std.math : sqrt;
@@ -833,7 +833,7 @@ Params:
 
 Returns: normalized target vector
 */
-Vector!(T,U) normalize(T,uint U)(Vector!(T,U) v) 
+Vector!(T,U) normalize(T,uint U)(const Vector!(T,U) v) 
 if (__traits(isFloating, T))
 {
     return v / length(v);
@@ -848,7 +848,7 @@ Params:
 
 Returns: normalized target vector if the length is greater than 0, otherwise zero vector
 */
-Vector!(T,U) safeNormalize(T,uint U)(Vector!(T,U) v) 
+Vector!(T,U) safeNormalize(T,uint U)(const Vector!(T,U) v) 
 if (__traits(isFloating, T))
 {
     const l = length(v);
@@ -878,7 +878,7 @@ Params:
 
 Returns: interpolated vector
 */
-Vector!(T,U) mix(T,uint U)(Vector!(T,U) v1, Vector!(T,U) v2, T t) {
+Vector!(T,U) mix(T,uint U)(const Vector!(T,U) v1, const Vector!(T,U) v2, T t) {
     return (1-t) * v1 + t * v2;
 }
 
@@ -907,7 +907,7 @@ Params:
 
 Returns: reduced vector
 */
-Vector!(T,U) reduceV(alias pred, T, int U)(Vector!(T,U)[] v...) {
+Vector!(T,U) reduceV(alias pred, T, int U)(const Vector!(T,U)[] v...) {
     Vector!(T,U) result = v[0];
     static foreach (i; 0..U) {
         foreach (j; 1..v.length) {
@@ -925,7 +925,7 @@ Params:
 
 Returns: unsigned area of triangle
 */
-T computeUnSignedArea(T)(Vector!(T,3)[3] positions...) {
+T computeUnSignedArea(T)(const Vector!(T,3)[3] positions...) {
     return length(cross(positions[2] - positions[0], positions[1] - positions[0])) / 2;
 }
 
@@ -956,7 +956,7 @@ Params:
 
 Returns: signed volume of tetrahedron
 */
-T computeSignedVolume(T)(Vector!(T,3)[4] positions...) {
+T computeSignedVolume(T)(const Vector!(T,3)[4] positions...) {
     Vector!(T,3)[3] v;
     static foreach (i; 0..3) {
         v[i] = positions[i+1] - positions[0];
@@ -998,7 +998,7 @@ Params:
 
 Returns: 3 normalized orthognal basis
 */
-Vector!(T,3)[3] mostDispersionBasis(T)(Vector!(T,3)[] vertices...)
+Vector!(T,3)[3] mostDispersionBasis(T)(const Vector!(T,3)[] vertices...)
     in(vertices.length > 0)
 {
     import std.algorithm : sum;
@@ -1066,7 +1066,7 @@ Params:
 
 Returns: true if 2 vectors are approximately equal.
 */
-bool approxEqual(T,uint N)(Vector!(T,N) a, Vector!(T,N) b, T eps = 1e-5) {
+bool approxEqual(T,uint N)(const Vector!(T,N) a, const Vector!(T,N) b, T eps = 1e-5) {
     return length(a-b) < eps;
 }
 

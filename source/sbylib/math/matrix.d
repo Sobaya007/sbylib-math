@@ -675,7 +675,7 @@ if (__traits(isArithmetic, T))
 
         Returns: scale matrix
         */
-        static Matrix scale(Vector!(T,U) vec) {
+        static Matrix scale(const Vector!(T,U) vec) {
             Matrix result;
             static foreach (i; 0..U) {
                 static foreach (j; 0..U) {
@@ -761,7 +761,7 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            static Matrix axisAngle(Vector!(T,3) axis, Angle angle) {
+            static Matrix axisAngle(const Vector!(T,3) axis, const Angle angle) {
                 const c = cos(angle);
                 const s = sin(angle);
                 Matrix result;
@@ -805,7 +805,7 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+            static Matrix rotFromTo(const Vector!(T,3) from, const Vector!(T,3) to) {
                 import std.algorithm : clamp;
 
                 const v = cross(from, to).normalize;
@@ -839,7 +839,7 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            static Matrix axisAngle(Vector!(T,3) v, Angle angle) {
+            static Matrix axisAngle(const Vector!(T,3) v, const Angle angle) {
                 return Matrix!(T,3,3).axisAngle(v, angle).toMatrix4();
             }
 
@@ -868,7 +868,7 @@ if (__traits(isArithmetic, T))
 
             Returns: rotation matrix
             */
-            static Matrix rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+            static Matrix rotFromTo(const Vector!(T,3) from, const Vector!(T,3) to) {
                 return Matrix!(T,3,3).rotFromTo(from, to).toMatrix4();
             }
 
@@ -896,11 +896,11 @@ if (__traits(isArithmetic, T))
 
             Returns: view transformation matrix
             */
-            static Matrix lookAt(Vector!(T,3) eye, Vector!(T,3) vec, Vector!(T,3) up) {
+            static Matrix lookAt(const Vector!(T,3) eye, const Vector!(T,3) vec, const Vector!(T,3) up) {
                 const side = normalize(cross(up, vec));
-                up = normalize(cross(vec, side));
-                return Matrix(Vector!(T,4)(side, 0), Vector!(T,4)(up, 0), Vector!(T,4)(vec, 0),
-                        Vector!(T,4)(-dot(eye,side),-dot(eye,up),-dot(eye,vec),1));
+                const up2 = normalize(cross(vec, side));
+                return Matrix(Vector!(T,4)(side, 0), Vector!(T,4)(up2, 0), Vector!(T,4)(vec, 0),
+                        Vector!(T,4)(-dot(eye,side),-dot(eye,up2),-dot(eye,vec),1));
             }
 
             /**
@@ -952,7 +952,7 @@ if (__traits(isArithmetic, T))
 
             Returns: perspective projection transform matrix
             */
-            static Matrix makeTRS(Vector!(T,3) trans, Matrix!(T,3,3) rot, Vector!(T,3) scale) {
+            static Matrix makeTRS(const Vector!(T,3) trans, const Matrix!(T,3,3) rot, const Vector!(T,3) scale) {
                 return Matrix(
                         vec4(scale[0] * rot.column[0],0), 
                         vec4(scale[1] * rot.column[1],0), 
@@ -987,7 +987,7 @@ if (__traits(isArithmetic, T))
 
             Returns: perspective projection transform matrix
             */
-            static Matrix makeInvertTRS(Vector!(T,3) pos, Matrix!(T,3,3) rot, Vector!(T, 3) scale) {
+            static Matrix makeInvertTRS(const Vector!(T,3) pos, const Matrix!(T,3,3) rot, const Vector!(T, 3) scale) {
                 return Matrix(
                         rot[0,0] / scale[0], rot[1,0] / scale[0], rot[2,0] / scale[0], -dot(rot.column[0], pos) / scale[0],
                         rot[0,1] / scale[1], rot[1,1] / scale[1], rot[2,1] / scale[1], -dot(rot.column[1], pos) / scale[1],
@@ -1020,7 +1020,7 @@ Params:
 
 Returns: transposed matrix
 */
-Matrix!(T,V,U) transpose(T, uint U, uint V)(Matrix!(T,U,V) m) {
+Matrix!(T,V,U) transpose(T, uint U, uint V)(const Matrix!(T,U,V) m) {
     Matrix!(T,V,U) r;
     static foreach (i;0..V) {
         static foreach (j;0..U) {
@@ -1043,7 +1043,7 @@ Params:
 
 Returns: 3x3 matrix
 */
-Matrix!(T,3,3) toMatrix3(T)(Matrix!(T,4,4) m) {
+Matrix!(T,3,3) toMatrix3(T)(const Matrix!(T,4,4) m) {
     return Matrix!(T,3,3)(m.column[0].xyz, m.column[1].xyz, m.column[2].xyz);
 }
 
@@ -1070,7 +1070,7 @@ Params:
 
 Returns: 4x4 matrix
 */
-Matrix!(T,4,4) toMatrix4(T)(Matrix!(T,3,3) m) {
+Matrix!(T,4,4) toMatrix4(T)(const Matrix!(T,3,3) m) {
     Matrix!(T,4,4) result;
     static foreach (i; 0..3) {
         static foreach (j; 0..3) {
@@ -1104,7 +1104,7 @@ Converts to quaternion.
 
 Returns: converted quaternion
 */
-Quaternion!T toQuaternion(T)(Matrix!(T,3,3) m) {
+Quaternion!T toQuaternion(T)(const Matrix!(T,3,3) m) {
     import std.math : sqrt, sgn;
 
     auto q0 = ( m[0,0] + m[1,1] + m[2,2] + 1.0f) / 4.0f;
@@ -1164,7 +1164,7 @@ Get diagonal component from matrix
 
 Returns: diagonal vector of the matrix
 */
-Vector!(T,U) diagonal(T,uint U)(Matrix!(T,U,U) m) {
+Vector!(T,U) diagonal(T,uint U)(const Matrix!(T,U,U) m) {
     Vector!(T,U) result;
     static foreach (i; 0..U) {
         result[i] = m[i,i];
@@ -1184,7 +1184,7 @@ Get translation information from matrix
 
 Returns: translation vector for the matrix
 */
-Vector!(T,U-1) getTranslation(T,uint U)(Matrix!(T,U,U) m) 
+Vector!(T,U-1) getTranslation(T,uint U)(const Matrix!(T,U,U) m) 
 if (U > 0)
 {
     Vector!(T,U-1) result;
@@ -1220,7 +1220,7 @@ Params:
 
 Returns: determinant value of the target matrix
 */
-T determinant(T)(Matrix!(T,2,2) m) {
+T determinant(T)(const Matrix!(T,2,2) m) {
     return m[0,0]*m[1,1] - m[0,1]*m[1,0];
 }
 
@@ -1232,7 +1232,7 @@ Params:
 
 Returns: determinant value of the target matrix
 */
-T determinant(T)(Matrix!(T,3,3) m) {
+T determinant(T)(const Matrix!(T,3,3) m) {
     return
         + m[0,0]*m[1,1]*m[2,2]
         + m[0,1]*m[1,2]*m[2,0]
@@ -1250,7 +1250,7 @@ Params:
 
 Returns: determinant value of the target matrix
 */
-T determinant(T)(Matrix!(T,4,4) m) {
+T determinant(T)(const Matrix!(T,4,4) m) {
     const e2233_2332 = m[2,2] * m[3,3] - m[2,3] * m[3,2];
     const e2133_2331 = m[2,1] * m[3,3] - m[2,3] * m[3,1];
     const e2132_2231 = m[2,1] * m[3,2] - m[2,2] * m[3,1];
@@ -1273,7 +1273,7 @@ Params:
 
 Returns: inverse matrix of the target matrix
 */
-Matrix!(T,2,2) invert(T)(Matrix!(T,2,2) m) {
+Matrix!(T,2,2) invert(T)(const Matrix!(T,2,2) m) {
     auto det = determinant(m);
     if (det != 0) det = 1 / det;
     Matrix!(T,2,2) r;
@@ -1302,7 +1302,7 @@ Params:
 
 Returns: inverse matrix of the target matrix
 */
-Matrix!(T,3,3) invert(T)(Matrix!(T,3,3) m) {
+Matrix!(T,3,3) invert(T)(const Matrix!(T,3,3) m) {
     auto det = determinant(m);
     if (det != 0) det = 1 / det;
     Matrix!(T,3,3) r;
@@ -1336,7 +1336,7 @@ Params:
 
 Returns: inverse matrix of the target matrix
 */
-Matrix!(T,4,4) invert(T)(Matrix!(T,4,4) m) {
+Matrix!(T,4,4) invert(T)(const Matrix!(T,4,4) m) {
     auto det = determinant(m);
     if (det != 0) det = 1 / det;
     const e2233_2332 = m[2,2] * m[3,3] - m[2,3] * m[3,2];
@@ -1517,7 +1517,7 @@ Params:
 
 Returns: true if the given matrix is symmetric
 */
-bool isSymmetric(T, uint U)(Matrix!(T,U,U) m, T eps = 1e-5) {
+bool isSymmetric(T, uint U)(const Matrix!(T,U,U) m, T eps = 1e-5) {
     return approxEqual(m, transpose(m), eps);
 }
 
@@ -1530,7 +1530,7 @@ Params:
 
 Returns: true if the given matrix is orthogonal
 */
-bool isOrthogonal(T, uint U)(Matrix!(T,U,U) m, T eps = 1e-5) {
+bool isOrthogonal(T, uint U)(const Matrix!(T,U,U) m, T eps = 1e-5) {
     return approxEqual(invert(m), transpose(m), eps);
 }
 
@@ -1544,7 +1544,7 @@ Params:
 
 Returns: true if 2 vectors are approximately equal.
 */
-bool approxEqual(T,uint U,uint V)(Matrix!(T,U,V) a, Matrix!(T,U,V) b, T eps = 1e-5) {
+bool approxEqual(T,uint U,uint V)(const Matrix!(T,U,V) a, const Matrix!(T,U,V) b, T eps = 1e-5) {
     import std.math : abs;
 
     static foreach (i; 0..U) {

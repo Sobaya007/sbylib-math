@@ -520,7 +520,7 @@ if (__traits(isArithmetic, T))
         assert(q.axis == vec3(1,2,3));
     }
 
-    void axis(Vector!(T,3) axis) @property {
+    void axis(const Vector!(T,3) axis) @property {
         this.x = axis[0];
         this.y = axis[1];
         this.z = axis[2];
@@ -541,7 +541,7 @@ if (__traits(isArithmetic, T))
 
     Returns: rotation quaternion
     */
-    static Quaternion axisAngle(Vector!(T,3) axis, Angle rad) {
+    static Quaternion axisAngle(const Vector!(T,3) axis, const Angle rad) {
         return Quaternion(axis * sin(rad/2), cos(rad/2));
     }
 
@@ -571,7 +571,7 @@ if (__traits(isArithmetic, T))
 
     Returns: rotation quaternion
     */
-    static Quaternion!T rotFromTo(Vector!(T,3) from, Vector!(T,3) to) {
+    static Quaternion!T rotFromTo(const Vector!(T,3) from, const Vector!(T,3) to) {
         import sbylib.math.vector : vnormalize = normalize;
         import std.math : sgn;
 
@@ -606,7 +606,7 @@ Params:
 
 Returns: length of the target quaternion
 */
-T lengthSq(T)(Quaternion!T q) {
+T lengthSq(T)(const Quaternion!T q) {
     T sum = 0;
     static foreach (i; 0..4) {
         sum += q[i] * q[i];
@@ -622,7 +622,7 @@ Params:
 
 Returns: length of the target quaternion
 */
-T length(T)(Quaternion!T q) 
+T length(T)(const Quaternion!T q) 
 if (__traits(isFloating, T))
 {
     import std.math : sqrt;
@@ -637,7 +637,7 @@ Params:
 
 Returns: normalized target quaternion
 */
-Quaternion!T normalize(T)(Quaternion!T q) 
+Quaternion!T normalize(T)(const Quaternion!T q) 
 if (__traits(isFloating, T))
 {
     return q / length(q);
@@ -652,7 +652,7 @@ Params:
 
 Returns: normalized target quaternion if the length is greater than 0, otherwise zero vector
 */
-Quaternion!(T) safeNormalize(T)(Quaternion!(T) q) 
+Quaternion!(T) safeNormalize(T)(const Quaternion!(T) q) 
 if (__traits(isFloating, T))
 {
     const l = length(q);
@@ -681,7 +681,7 @@ Params:
 
 Returns: rotated vector
 */
-Vector!(T,3) rotate(T)(Quaternion!(T) q, Vector!(T,3) vec) {
+Vector!(T,3) rotate(T)(const Quaternion!(T) q, Vector!(T,3) vec) {
     return (q * Quaternion!T(vec, 0) * ~q).axis;
 }
 
@@ -710,7 +710,7 @@ Params:
 
 Returns: Interpolated quaternion
 */
-Quaternion!(T) slerp(T)(Quaternion!(T) q1, Quaternion!(T) q2, T t) {
+Quaternion!(T) slerp(T)(const Quaternion!(T) q1, const Quaternion!(T) q2, T t) {
     import std.math : approxEqual;
 
     const c = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
@@ -757,7 +757,7 @@ Params:
 
 Returns: converted matrix
 */
-Matrix!(T,3,3) toMatrix3(T)(Quaternion!T q) {
+Matrix!(T,3,3) toMatrix3(T)(const Quaternion!T q) {
     with (q) {
         return Matrix!(T,3,3)(
                 1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+w*y),
@@ -787,7 +787,7 @@ Params:
 
 Returns: converted matrix
 */
-Matrix!(T,4,4) toMatrix4(T)(Quaternion!T q) {
+Matrix!(T,4,4) toMatrix4(T)(const Quaternion!T q) {
     import sbylib.math.matrix : toMatrix4;
     return q.toMatrix3().toMatrix4();
 }
@@ -815,6 +815,6 @@ Params:
 
 Returns: true if 2 vectors are approximately equal.
 */
-bool approxEqual(T)(Quaternion!(T) a, Quaternion!(T) b, T eps = 1e-5) {
+bool approxEqual(T)(const Quaternion!(T) a, const Quaternion!(T) b, T eps = 1e-5) {
     return length(a-b) < eps;
 }
