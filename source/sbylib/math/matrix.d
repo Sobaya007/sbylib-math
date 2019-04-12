@@ -143,28 +143,30 @@ if (__traits(isArithmetic, T))
         assert(a[1,1] == 4);
     }
 
-    /**
-    Constructor by array of vector.
-    This matrix's all elements are filled by given
-    Each vectors are dealed as column.
+    static if (V > 1) {
+        /**
+        Constructor by array of vector.
+        This matrix's all elements are filled by given
+        Each vectors are dealed as column.
 
-    Params:
+        Params:
         vectors = values which fills the matrix
-    */
-    this(Vector!(T, U)[V] vectors...) {
-        static foreach (i; 0..U) {
-            static foreach (j; 0..V) {
-                this[i,j] = vectors[j][i];
+        */
+        this(Vector!(T, U)[V] vectors...) {
+            static foreach (i; 0..U) {
+                static foreach (j; 0..V) {
+                    this[i,j] = vectors[j][i];
+                }
             }
         }
-    }
 
-    unittest {
-        const a = mat2(vec2(1,3),vec2(2,4));
-        assert(a[0,0] == 1);
-        assert(a[0,1] == 2);
-        assert(a[1,0] == 3);
-        assert(a[1,1] == 4);
+        unittest {
+            const a = mat2(vec2(1,3),vec2(2,4));
+            assert(a[0,0] == 1);
+            assert(a[0,1] == 2);
+            assert(a[1,0] == 3);
+            assert(a[1,1] == 4);
+        }
     }
 
     /**
