@@ -7,9 +7,9 @@ import std.range : isInputRange, RangeElementType = ElementType;
 alias vec2  = Vector!(float, 2);
 alias vec3  = Vector!(float, 3);
 alias vec4  = Vector!(float, 4);
-alias vec2i = Vector!(int,   2);
-alias vec3i = Vector!(int,   3);
-alias vec4i = Vector!(int,   4);
+alias ivec2 = Vector!(int,   2);
+alias ivec3 = Vector!(int,   3);
+alias ivec4 = Vector!(int,   4);
 
 enum isVector(T) = isInstanceOf!(Vector, T);
 
