@@ -812,6 +812,11 @@ if (__traits(isArithmetic, T))
 
                 const v = cross(from, to).normalize;
                 const c = dot(from, to);
+
+                if (v.hasNaN) {
+                    if (c > 0) return Matrix.identity;
+                    else return Matrix.scale(vec3(-1));
+                }
                 const angle = -acos(clamp(c, -1, +1));
                 return axisAngle(v, angle);
             }
@@ -828,6 +833,21 @@ if (__traits(isArithmetic, T))
                     const c = rotFromTo(a,b) * a;
                     assert(approxEqual(b,c), format!"b = %s, b' = %s"(b,c));
                 }
+            }
+
+            /**
+            Returns view transform matrix.
+
+            Params:
+                vec = backward vector
+                up = up vector
+
+            Returns: view transformation matrix
+            */
+            static Matrix lookAt(const Vector!(T,3) vec, const Vector!(T,3) up) {
+                const side = normalize(cross(up, vec));
+                const up2 = normalize(cross(vec, side));
+                return Matrix(side, up2, vec);
             }
 
         } else static if (U == 4) {
