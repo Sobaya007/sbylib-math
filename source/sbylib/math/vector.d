@@ -310,6 +310,38 @@ if (__traits(isArithmetic, T))
     }
 
     /**
+    Cast operation.
+
+    Returns: a vector whose elements are indivisually casted.
+    */
+    V2 opCast(V2)() const if (isVector!V2 && Dimension == V2.Dimension) {
+        import std : to;
+
+        return V2(this.elements[].map!(to!(V2.ElementType)));
+    }
+
+    unittest {
+        import std.algorithm : map;
+        import std.range : iota;
+        import std.random : uniform;
+        import std.array : array;
+
+        foreach (k; 0..100) {
+            float[4] e;
+            static foreach (i; 0..4) {
+                e[i] = uniform(-1.0f, +1.0f);
+            }
+            const v = vec4(e.array);
+
+            const v2 = cast(ivec4)v;
+
+            static foreach (i; 0..4) {
+                assert(cast(int)v[i] == v2[i]);
+            }
+        }
+    }
+
+    /**
     Indexing operation.
     
     Params:
@@ -549,8 +581,10 @@ if (__traits(isArithmetic, T))
             enum Count = Count!(typeof(Type.elements));
         } else static if (isStaticArray!(Type)) {
             enum Count = Type.length * Count!(ForeachType!(Type));
-        } else static if (is(Type : T)) {
+        } else static if (is(Unqual!Type : T)) {
             enum Count = 1;
+        } else {
+            static assert(false, "Invalid type: " ~ Type.stringof);
         }
     }
 
