@@ -114,8 +114,8 @@ if (__traits(isArithmetic, T))
         import std.range : iota;
         const a = mat2(iota(4));
         assert(a[0,0] == 0);
-        assert(a[0,1] == 1);
-        assert(a[1,0] == 2);
+        assert(a[1,0] == 1);
+        assert(a[0,1] == 2);
         assert(a[1,1] == 3);
     }
 
@@ -498,7 +498,7 @@ if (__traits(isArithmetic, T))
     T opIndex(size_t i, size_t j) const 
     in (i < U && j < V)
     {
-        return element[j+i*V];
+        return element[i+j*U];
     }
 
     unittest {
@@ -533,7 +533,7 @@ if (__traits(isArithmetic, T))
     ref T opIndex(size_t i, size_t j) 
     in(i < U && j < V)
     {
-        return element[j+i*V];
+        return element[i+j*U];
     }
 
     unittest {
@@ -587,8 +587,8 @@ if (__traits(isArithmetic, T))
     unittest {
         import std.range : iota;
         const a = mat2(iota(4));
-        assert(a.column[0] == vec2(0,2));
-        assert(a.column[1] == vec2(1,3));
+        assert(a.column[0] == vec2(0,1));
+        assert(a.column[1] == vec2(2,3));
     }
 
     /**
@@ -609,8 +609,8 @@ if (__traits(isArithmetic, T))
     unittest {
         import std.range : iota;
         const a = mat2(iota(4));
-        assert(a.row[0] == vec2(0,1));
-        assert(a.row[1] == vec2(2,3));
+        assert(a.row[0] == vec2(0,2));
+        assert(a.row[1] == vec2(1,3));
     }
 
     /**
